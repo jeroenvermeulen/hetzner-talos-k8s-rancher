@@ -1,0 +1,12 @@
+RANCHER_HOSTNAME="rancher.eu1.yourdomain.com"   # You need to update this value
+KUBE_VERSION="v1.26.6"                          # At the moment Rancher can't run on K8S v1.27
+RANCHER_CHART_REPO="latest"                     # https://ranchermanager.docs.rancher.com/getting-started/installation-and-upgrade/resources/choose-a-rancher-version
+CLUSTER_NAME="eu1"                              # Name for your cluster. Keep it short, only alphanumeric
+CONTROL_COUNT=3                                 # Number of control nodes
+CONTROL_LOCATION=(hel1 fsn1 nbg1)               # Needs as many entries as CONTROL_COUNT
+CONTROL_TYPE="CX31"                             # https://docs.hetzner.com/cloud/servers/overview/
+WORKER_COUNT=3                                  # Number of worker nodes
+WORKER_LOCATION=(hel1 fsn1 nbg1)                # Needs as many entries as WORKER_COUNT
+WORKER_TYPE="CX31"                              # https://docs.hetzner.com/cloud/servers/overview/
+HCLOUD_NETWORK_ZONE="eu-central"                # https://docs.hetzner.com/cloud/general/locations/
+TALOS_VERSION="v1.4.6"                          # https://github.com/siderolabs/talos/releases
