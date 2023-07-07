@@ -17,11 +17,9 @@ showNotice "==== Executing $(basename "$0") ===="
 
   NAMESPACE="traefik"
   EXTERNAL_IPS=()
-  EXTERNAL_IPS_Q=()
-  for NR in $(seq 1 1 "${CONTROL_COUNT}"); do
-    NODE_NAME="control${NR}.${CLUSTER_NAME}"
+  for NR in $(seq 1 1 "${WORKER_COUNT}"); do
+    NODE_NAME="worker${NR}.${CLUSTER_NAME}"
     EXTERNAL_IPS+=("$( hcloud server ip "${NODE_NAME}" )")
-    EXTERNAL_IPS_Q+=("\"$( hcloud server ip "${NODE_NAME}" )\"")
   done
 
   if [ -z "$( kubectl get namespace --selector="name=${NAMESPACE}" --no-headers )" ]; then

@@ -40,6 +40,7 @@ showNotice "==== Executing $(basename "$0") ===="
     fi
     talosctl  gen  config  --with-secrets secrets.yaml  "${TALOS_CONTEXT}"  "https://${LB_IPV4}:6443" \
       --kubernetes-version "${KUBE_VERSION}" \
+      --config-patch "@talos-patch.yaml" \
       --force
   )
 
@@ -89,11 +90,26 @@ showNotice "==== Executing $(basename "$0") ===="
   talosctl  config  endpoint  "${CONTROL1_IP}"
   talosctl  config  node      "${CONTROL1_IP}"
 
+  for TRY in $(seq 100); do
+    if nc -z "${CONTROL1_IP}" 50000; then
+      break;
+    fi
+    sleep 5
+  done
+
   if ! talosctl etcd status 2>/dev/null | grep "${CONTROL1_IP}"; then
     talosctl  bootstrap
   fi
 
   talosctl  kubeconfig  "${KUBECONFIG}"  --force
+
+  for TRY in $(seq 100); do
+    kubectl get nodes || true
+    if  kubectl get nodes --no-headers control1 | grep -E "\sReady\s"; then
+      break
+    fi
+    sleep 5
+  done
 
   showNotice "Make sure the DNS of '${RANCHER_HOSTNAME}' resolves to the load balancer IP '${LB_IPV4}'"
 )
