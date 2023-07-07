@@ -27,6 +27,7 @@ showNotice "==== Executing $(basename "$0") ===="
         --namespace  "${NAMESPACE}" \
         --create-namespace \
         --set "deployment.replicas=$((WORKER_COUNT))" \
+        --set "externalTrafficPolicy=Local" \
         --set "service.spec.loadBalancerIP=\"${WORKER_LB_IPV4}\"" \
         --set "service.spec.externalIPs={$(IFS=, ; echo "${WORKER_IPS[*]}")}" \
         --set "logs.general.level=INFO" \
@@ -64,8 +65,6 @@ showNotice "==== Executing $(basename "$0") ===="
         --debug \
         --wait \
         --timeout 10m
-
-      #--set bootstrapPassword=bigSecret123
   fi
   kubectl -n "${NAMESPACE}" get pods
 

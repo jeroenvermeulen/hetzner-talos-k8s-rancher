@@ -169,28 +169,11 @@ showNotice "==== Executing $(basename "$0") ===="
     sleep 5
   done
 
+  # kubectl -n kube-system create secret generic hcloud --from-literal=token=___token___ --from-literal=network=eu1.network
+  # kubectl  apply  -f https://github.com/hetznercloud/hcloud-cloud-controller-manager/releases/latest/download/ccm.yaml
 
-# kubectl -n kube-system create secret generic hcloud --from-literal=token=___token___ --from-literal=network=eu1.network
-# kubectl  apply  -f https://github.com/hetznercloud/hcloud-cloud-controller-manager/releases/latest/download/ccm-networks.yaml
-
-
-#  kubectl  -n kube-flannel  patch DaemonSet  kube-flannel-ds  --type json \
-#     -p '[{"op":"add","path":"/spec/template/spec/tolerations/-","value":{"key":"node.cloudprovider.kubernetes.io/uninitialized","value":"true","effect":"NoSchedule"}}]'
-#  NAMESPACE="kube-flannel"
-#  kubectl  create  namespace  "${NAMESPACE}"
-#  kubectl  label  --overwrite  namespace "${NAMESPACE}"  pod-security.kubernetes.io/enforce=privileged
-#
-#  helm  repo  add  flannel  https://flannel-io.github.io/flannel/
-#  helm  repo  update
-#  helm  install  flannel  --set podCidr="10.244.0.0/16"  --namespace "${NAMESPACE}"  flannel/flannel
-#  kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
-
-
-# kubectl  apply  -f https://github.com/hetznercloud/hcloud-cloud-controller-manager/releases/latest/download/ccm.yaml
-#  NAMESPACE="kube-system"
-#  helm repo add hcloud https://charts.hetzner.cloud
-#  helm repo update hcloud
-#  helm install hccm hcloud/hcloud-cloud-controller-manager -n "${NAMESPACE}"
+  # kubectl  apply  -f https://github.com/hetznercloud/hcloud-cloud-controller-manager/releases/latest/download/ccm-networks.yaml
+  # cilium install --datapath-mode native
 
   showNotice "Make sure the DNS of '${RANCHER_HOSTNAME}' resolves to the load balancer IP '${WORKER_LB_IPV4}'"
 )
