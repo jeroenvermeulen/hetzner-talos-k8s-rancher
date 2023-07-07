@@ -1,6 +1,8 @@
-/secrets.yaml
-/controlplane.yaml
-/worker.yaml
-/talosconfig
-/kubeconfig
+.idea
+*~
+/secrets.*.yaml
+/controlplane.*.yaml
+/worker.*.yaml
+/talosconfig.*.yaml
+/kubeconfig.*.yaml
 /CONFIG.sh

@@ -13,28 +13,26 @@ showNotice "==== Executing $(basename "$0") ===="
   helm  repo  add  rancher-${RANCHER_CHART_REPO} https://releases.rancher.com/server-charts/${RANCHER_CHART_REPO}
   helm  repo  update
 
-  LB_IPV4=$( hcloud load-balancer describe "${CONTROL_LB_NAME}" --output json | jq -r '.public_net.ipv4.ip' )
+  WORKER_LB_IPV4=$( hcloud load-balancer describe "${WORKER_LB_NAME}" --output json | jq -r '.public_net.ipv4.ip' )
 
-  NAMESPACE="traefik"
-  EXTERNAL_IPS=()
-  EXTERNAL_IPS_Q=()
-  for NR in $(seq 1 1 "${CONTROL_COUNT}"); do
-    NODE_NAME="control${NR}.${CLUSTER_NAME}"
-    EXTERNAL_IPS+=("$( hcloud server ip "${NODE_NAME}" )")
-    EXTERNAL_IPS_Q+=("\"$( hcloud server ip "${NODE_NAME}" )\"")
+  WORKER_IPS=()
+  for NR in $(seq 1 1 "${WORKER_COUNT}"); do
+    NODE_NAME="worker${NR}.${CLUSTER_NAME}"
+    WORKER_IPS+=("$( hcloud server ip "${NODE_NAME}" )")
   done
 
-  if [ -z "$( kubectl get namespace --selector="name=${NAMESPACE}" --no-headers )" ]; then
+  NAMESPACE="traefik"
+  if [ -z "$( kubectl get -n "${NAMESPACE}" service --selector="app.kubernetes.io/name=traefik" --no-headers )" ]; then
     helm  install  traefik  traefik/traefik \
         --namespace  "${NAMESPACE}" \
         --create-namespace \
-        --set "deployment.replicas=${CONTROL_COUNT}" \
-        --set "service.spec.externalIPs={$(IFS=, ; echo "${EXTERNAL_IPS[*]}")}" \
+        --set "deployment.replicas=$((WORKER_COUNT))" \
+        --set "service.spec.loadBalancerIP=\"${WORKER_LB_IPV4}\"" \
+        --set "service.spec.externalIPs={$(IFS=, ; echo "${WORKER_IPS[*]}")}" \
         --set "logs.general.level=INFO" \
         --debug \
         --wait \
         --timeout 5m
-#        --set "service.spec.loadBalancerIP=\"${LB_IPV4}\"" \
   fi
   kubectl -n "${NAMESPACE}" get pods
 

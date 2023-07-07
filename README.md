@@ -14,7 +14,7 @@
 - An [Hetzner account](https://accounts.hetzner.com/signUp)
 - In the Hetzner Cloud Console create a [Project](https://console.hetzner.cloud/projects)
 - In the Project create an API token using **Security** (left sidebar) => **API tokens**
-  - Description: `Talos` (doesn't matter)
+  - Description: `CLI` (doesn't matter)
   - Permissions: **Read & Write**
   - Save the token in a safe place, it will be asked later with prompt `Token:`
 

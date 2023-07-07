@@ -1,0 +1,10 @@
+machine:
+    kubelet:
+        nodeIP:
+            validSubnets:
+                - 10.0.0.0/8
+#cluster:
+#  externalCloudProvider:
+#    enabled: true
+#    manifests:
+#      - https://github.com/hetznercloud/hcloud-cloud-controller-manager/releases/latest/download/ccm.yaml
