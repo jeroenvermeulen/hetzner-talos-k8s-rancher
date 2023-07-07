@@ -5,27 +5,17 @@ SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source  "${SCRIPT_DIR}/lib.sh"
 showNotice "==== Executing $(basename "$0") ===="
 (
-  hcloudContext
   set  -o xtrace
+  setContext
 
-  ## Network
-  if  ! hcloud network list --output noheader  --output columns=name | grep "^${NETWORK_NAME}$"; then
-    hcloud network create --name "${NETWORK_NAME}" --ip-range "10.0.0.0/8"
-    # hcloud network add-subnet "${NETWORK_NAME}" --type cloud --ip-range "10.244.0.0/16" --network-zone "${HCLOUD_NETWORK_ZONE}"
-  fi
-
-  ## Control load balancer
+  showProgress "Control load balancer"
 
   if  ! hcloud load-balancer list --output noheader  --output columns=name | grep "^${CONTROL_LB_NAME}$"; then
     hcloud  load-balancer  create \
       --name "${CONTROL_LB_NAME}" \
       --network-zone "${HCLOUD_NETWORK_ZONE}" \
-      --type lb11 \
+      --type "$( echo ${CONTROL_LB_TYPE} | tr '[:upper:]' '[:lower:]' )" \
       --label "${CONTROL_SELECTOR}"
-  fi
-
-  if  ! hcloud load-balancer  describe "${CONTROL_LB_NAME}" | grep "${NETWORK_NAME}$"; then
-    hcloud load-balancer attach-to-network --network "${NETWORK_NAME}" "${CONTROL_LB_NAME}"
   fi
 
   for  PORT  in  6443; do
@@ -44,18 +34,16 @@ showNotice "==== Executing $(basename "$0") ===="
         --label-selector "${CONTROL_SELECTOR}"
   fi
 
-  ## Worker load balancer
+  CONTROL_LB_IPV4=$( hcloud load-balancer describe "${CONTROL_LB_NAME}" --output json | jq -r '.public_net.ipv4.ip' )
+
+  showProgress "Worker load balancer"
 
   if  ! hcloud load-balancer list --output noheader  --output columns=name | grep "^${WORKER_LB_NAME}$"; then
     hcloud  load-balancer  create \
       --name "${WORKER_LB_NAME}" \
       --network-zone "${HCLOUD_NETWORK_ZONE}" \
-      --type lb11 \
+      --type "$( echo ${WORKER_LB_TYPE} | tr '[:upper:]' '[:lower:]' )" \
       --label "${WORKER_SELECTOR}"
-  fi
-
-  if  ! hcloud load-balancer  describe "${WORKER_LB_NAME}" | grep "${NETWORK_NAME}$"; then
-    hcloud load-balancer attach-to-network --network "${NETWORK_NAME}" "${WORKER_LB_NAME}"
   fi
 
   for  PORT  in  443  80; do
@@ -74,8 +62,9 @@ showNotice "==== Executing $(basename "$0") ===="
         --label-selector "${WORKER_SELECTOR}"
   fi
 
-  CONTROL_LB_IPV4=$( hcloud load-balancer describe "${CONTROL_LB_NAME}" --output json | jq -r '.public_net.ipv4.ip' )
   WORKER_LB_IPV4=$( hcloud load-balancer describe "${WORKER_LB_NAME}" --output json | jq -r '.public_net.ipv4.ip' )
+
+  showProgress "Generate Talos configs for controlplane and workers"
 
   (
     umask 0077
@@ -83,27 +72,27 @@ showNotice "==== Executing $(basename "$0") ===="
       talosctl  gen  secrets  -o "${TALOS_SECRETS}"
     fi
     talosctl  gen  config  --with-secrets "${TALOS_SECRETS}"  "${TALOS_CONTEXT}"  "https://${CONTROL_LB_IPV4}:6443" \
-      --config-patch @talos-patch-hetzner.yaml \
+      --config-patch @talos-patch.yaml \
       --kubernetes-version "${KUBE_VERSION}" \
       --output-types controlplane \
       --output "${TALOS_CONTROLPLANE}" \
       --force
     talosctl  gen  config  --with-secrets "${TALOS_SECRETS}"  "${TALOS_CONTEXT}"  "https://${CONTROL_LB_IPV4}:6443" \
-      --config-patch @talos-patch-hetzner.yaml \
+      --config-patch @talos-patch.yaml \
       --kubernetes-version "${KUBE_VERSION}" \
       --output-types worker \
       --output "${TALOS_WORKER}" \
-      --force
-    talosctl  gen  config  --with-secrets "${TALOS_SECRETS}"  "${TALOS_CONTEXT}"  "https://${CONTROL_LB_IPV4}:6443" \
-      --output-types talosconfig \
-      --output "${TALOSCONFIG}" \
       --force
   )
 
   talosctl  validate  --config "${TALOS_CONTROLPLANE}"  --mode cloud
   talosctl  validate  --config "${TALOS_WORKER}"        --mode cloud
 
+  showProgress "Get disk image id"
+
   IMAGE_ID=$( hcloud  image list --selector "${IMAGE_SELECTOR}" --output noheader  --output columns=id | tr -d '\n' )
+
+  showProgress "Start control nodes"
 
   for NR in $(seq 1 1 "${CONTROL_COUNT}"); do
     NODE_NAME="control${NR}.${CLUSTER_NAME}"
@@ -112,12 +101,13 @@ showNotice "==== Executing $(basename "$0") ===="
     fi
     hcloud server create --name "${NODE_NAME}" \
         --image "${IMAGE_ID}" \
-        --type "${CONTROL_TYPE}" \
+        --type "$( echo ${CONTROL_TYPE} | tr '[:upper:]' '[:lower:]' )" \
         --location "${CONTROL_LOCATION[$((NR-1))]}" \
         --label "${CONTROL_SELECTOR}" \
-        --network "${NETWORK_NAME}" \
         --user-data-from-file  "${TALOS_CONTROLPLANE}"  >/dev/null &
   done
+
+  showProgress "Start worker nodes"
 
   for NR in $(seq 1 1 "${WORKER_COUNT}"); do
     NODE_NAME="worker${NR}.${CLUSTER_NAME}"
@@ -126,12 +116,13 @@ showNotice "==== Executing $(basename "$0") ===="
     fi
     hcloud server create --name "${NODE_NAME}" \
         --image "${IMAGE_ID}" \
-        --type "${WORKER_TYPE}" \
+        --type "$( echo ${WORKER_TYPE} | tr '[:upper:]' '[:lower:]' )" \
         --location "${WORKER_LOCATION[$((NR-1))]}" \
         --label "${WORKER_SELECTOR}" \
-        --network "${NETWORK_NAME}" \
         --user-data-from-file  "${TALOS_WORKER}"  >/dev/null &
   done
+
+  showProgress "Wait till first control node is running"
 
   CONTROL1_NAME="control1.${CLUSTER_NAME}"
 
@@ -143,10 +134,33 @@ showNotice "==== Executing $(basename "$0") ===="
     sleep 10
   done
 
-  CONTROL1_IP="$( hcloud server ip "${CONTROL1_NAME}" )"
+  showProgress "Get node IPs"
 
+  CONTROL1_IP="$( hcloud server ip "${CONTROL1_NAME}" )"
+  NODE_IPS=()
+  for NR in $(seq 1 1 "${CONTROL_COUNT}"); do
+    CONTROL_NAME="control${NR}.${CLUSTER_NAME}"
+    NODE_IPS+=("$( hcloud server ip "${CONTROL_NAME}" )")
+  done
+  for NR in $(seq 1 1 "${WORKER_COUNT}"); do
+    NODE_NAME="worker${NR}.${CLUSTER_NAME}"
+    NODE_IPS+=("$( hcloud server ip "${NODE_NAME}" )")
+  done
+
+  showProgress "Generate talosconfig"
+
+  talosctl  gen  config  --with-secrets "${TALOS_SECRETS}"  "${TALOS_CONTEXT}"  "https://${CONTROL_LB_IPV4}:6443" \
+    --output-types talosconfig  \
+    --output "${TALOSCONFIG}"  \
+    --force
   talosctl  config  endpoint  "${CONTROL1_IP}"
-  talosctl  config  node      "${CONTROL1_IP}"
+  IFS=' '  talosctl  config  node    ${NODE_IPS[*]}
+  if ! TALOSCONFIG= talosctl --context "talos-default" config info 2>/dev/null; then
+    TALOSCONFIG= talosctl  config  add "talos-default"
+  fi
+  TALOSCONFIG=  talosctl  config  context  talos-default
+  TALOSCONFIG=  talosctl  config  remove  "${TALOS_CONTEXT}"  --noconfirm
+  TALOSCONFIG=  talosctl  config  merge  "${TALOSCONFIG}"
 
   for TRY in $(seq 100); do
     if nc -z "${CONTROL1_IP}" 50000; then
@@ -155,11 +169,17 @@ showNotice "==== Executing $(basename "$0") ===="
     sleep 5
   done
 
-  if ! talosctl etcd status 2>/dev/null | grep "${CONTROL1_IP}"; then
-    talosctl  bootstrap
+  showProgress "Bootstrap Talos cluster"
+
+  if ! talosctl  etcd status 2>/dev/null | grep "${CONTROL1_IP}"; then
+    talosctl  bootstrap  --nodes "${CONTROL1_IP}"
   fi
 
-  talosctl  kubeconfig  "${KUBECONFIG}"  --force
+  showProgress "Update kubeconfig for kubectl"
+
+  talosctl  kubeconfig  --force  --nodes "${CONTROL1_IP}"
+
+  showProgress "Wait for first control node to become Ready"
 
   for TRY in $(seq 100); do
     kubectl get nodes || true
@@ -169,11 +189,18 @@ showNotice "==== Executing $(basename "$0") ===="
     sleep 5
   done
 
-  # kubectl -n kube-system create secret generic hcloud --from-literal=token=___token___ --from-literal=network=eu1.network
-  # kubectl  apply  -f https://github.com/hetznercloud/hcloud-cloud-controller-manager/releases/latest/download/ccm.yaml
+  showProgress "Create Hetzner Cloud secret and import Cloud Controller Manager manifest"
 
-  # kubectl  apply  -f https://github.com/hetznercloud/hcloud-cloud-controller-manager/releases/latest/download/ccm-networks.yaml
-  # cilium install --datapath-mode native
+  NAMESPACE="kube-system"
+  if  ! kubectl get -n "${NAMESPACE}" secret --no-headers -o name | grep -x "secret/hcloud"; then
+    HCLOUD_TOKEN="$( grep -A1 "name = '${HCLOUD_CONTEXT}'" ~/.config/hcloud/cli.toml | tail -n1 | cut -d\' -f2 )"
+    kubectl -n kube-system  create  secret  generic  hcloud  --from-literal="token=${HCLOUD_TOKEN}"
+  fi
+  kubectl  apply  -f https://github.com/hetznercloud/hcloud-cloud-controller-manager/releases/latest/download/ccm.yaml
+
+  showProgress "Show overview"
+
+  kubectl  get  nodes  -o wide
 
   showNotice "Make sure the DNS of '${RANCHER_HOSTNAME}' resolves to the load balancer IP '${WORKER_LB_IPV4}'"
 )

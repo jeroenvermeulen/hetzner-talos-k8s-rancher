@@ -4,5 +4,4 @@
 /controlplane.*.yaml
 /worker.*.yaml
 /talosconfig.*.yaml
-/kubeconfig.*.yaml
 /CONFIG.sh

@@ -5,13 +5,10 @@ SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source  "${SCRIPT_DIR}/lib.sh"
 showNotice "==== Executing $(basename "$0") ===="
 (
-  hcloudContext
   set  -o xtrace
+  setContext
 
-  helm  repo  add  jetstack https://charts.jetstack.io
-  helm  repo  add  traefik https://traefik.github.io/charts
-  helm  repo  add  rancher-${RANCHER_CHART_REPO} https://releases.rancher.com/server-charts/${RANCHER_CHART_REPO}
-  helm  repo  update
+  showProgress "Install Traefik"
 
   WORKER_LB_IPV4=$( hcloud load-balancer describe "${WORKER_LB_NAME}" --output json | jq -r '.public_net.ipv4.ip' )
 
@@ -21,8 +18,10 @@ showNotice "==== Executing $(basename "$0") ===="
     WORKER_IPS+=("$( hcloud server ip "${NODE_NAME}" )")
   done
 
+  helm  repo  add  traefik https://traefik.github.io/charts
+  helm  repo  update  traefik
   NAMESPACE="traefik"
-  if [ -z "$( kubectl get -n "${NAMESPACE}" service --selector="app.kubernetes.io/name=traefik" --no-headers )" ]; then
+  if  ! kubectl get namespace --no-headers -o name | grep -x "namespace/${NAMESPACE}"; then
     helm  install  traefik  traefik/traefik \
         --namespace  "${NAMESPACE}" \
         --create-namespace \
@@ -37,8 +36,12 @@ showNotice "==== Executing $(basename "$0") ===="
   fi
   kubectl -n "${NAMESPACE}" get pods
 
+  showProgress "Install Jetstack Cert-Manager for Let's Encrypt"
+
+  helm  repo  add  jetstack  https://charts.jetstack.io
+  helm  repo  update  jetstack
   NAMESPACE="cert-manager"
-  if [ -z "$( kubectl get namespace --selector="name=${NAMESPACE}" --no-headers )" ]; then
+  if  ! kubectl get namespace --no-headers -o name | grep -x "namespace/${NAMESPACE}"; then
     helm  install  cert-manager  jetstack/cert-manager \
         --namespace  "${NAMESPACE}" \
         --create-namespace \
@@ -51,9 +54,13 @@ showNotice "==== Executing $(basename "$0") ===="
   fi
   kubectl -n "${NAMESPACE}" get pods
 
+  showProgress "Install Rancher"
+
+  helm  repo  add  "rancher-${RANCHER_CHART_REPO}"  "https://releases.rancher.com/server-charts/${RANCHER_CHART_REPO}"
+  helm  repo  update  "rancher-${RANCHER_CHART_REPO}"
   NAMESPACE="cattle-system"
-  if [ -z "$( kubectl get namespace --selector="name=${NAMESPACE}" --no-headers )" ]; then
-    helm install rancher rancher-${RANCHER_CHART_REPO}/rancher \
+  if  ! kubectl get namespace --no-headers -o name | grep -x "namespace/${NAMESPACE}"; then
+    helm  install  rancher rancher-${RANCHER_CHART_REPO}/rancher \
         --namespace "${NAMESPACE}" \
         --create-namespace \
         --set "hostname=${RANCHER_HOSTNAME}" \
@@ -67,6 +74,25 @@ showNotice "==== Executing $(basename "$0") ===="
         --timeout 10m
   fi
   kubectl -n "${NAMESPACE}" get pods
+
+  showProgress "Install OpenEBS Jiva storage"
+
+  NAMESPACE="openebs"
+  helm  repo  add  openebs-jiva  https://openebs.github.io/jiva-operator
+  helm  repo  update  openebs-jiva
+  if  ! kubectl get namespace --no-headers -o name | grep -x "namespace/${NAMESPACE}"; then
+    helm  upgrade  openebs-jiva  openebs-jiva/jiva \
+      --install \
+      --create-namespace \
+      --namespace "${NAMESPACE}" # \
+#      --version 3.2.0
+  fi
+  kubectl  --namespace "${NAMESPACE}"  apply --filename  openebs-jiva-config.yaml
+  kubectl  --namespace "${NAMESPACE}"  patch  daemonset  openebs-jiva-csi-node \
+    --type=json \
+    --patch '[{"op": "add", "path": "/spec/template/spec/hostPID", "value": true}]'
+
+  showProgress "Show Rancher URL"
 
   showNotice "Go to Rancher:  https://${RANCHER_HOSTNAME}/dashboard/?setup=$(kubectl get secret --namespace cattle-system bootstrap-secret -o go-template='{{.data.bootstrapPassword|base64decode}}')"
 )

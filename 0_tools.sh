@@ -8,10 +8,11 @@ showNotice "==== Executing $(basename "$0") ===="
   set  -o xtrace
 
   if command -v brew > /dev/null; then
+    showProgress "Install packages using Homebrew"
     brew  install  packer  hcloud  jq  siderolabs/talos/talosctl  kubernetes-cli  helm   cilium-cli
   fi
 
-  # Show versions so we know the tools can be executed
+  showProgress "Show versions so we know the tools can be executed"
   packer  version
   hcloud  version
   jq  --version

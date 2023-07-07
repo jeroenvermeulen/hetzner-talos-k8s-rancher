@@ -6,6 +6,14 @@ function showNotice() {
   )
 }
 
+function showProgress() {
+  (
+    set +o xtrace;
+    IFS=' '
+    printf "\n\e[94m%s\e[0m\n\n" "$*"
+  )
+}
+
 function showError() {
   (
     set +o xtrace;
@@ -21,11 +29,19 @@ function onError() {
   )
 }
 
-function hcloudContext() {
-  if ! hcloud context list --output noheader --output columns=name | grep -q "^${HCLOUD_CONTEXT}$"; then
+function setContext() {
+  showProgress "Setting context for hcloud (Hetzner Cloud CLI)"
+  if ! hcloud context list --output noheader --output columns=name | grep -Eq "(^|\s)${HCLOUD_CONTEXT}$"; then
     hcloud context create "${HCLOUD_CONTEXT}"
   fi
-  hcloud context use "${HCLOUD_CONTEXT}"
+  hcloud  context  use  "${HCLOUD_CONTEXT}"
+  showProgress "Setting context for talosctl"
+  if ! talosctl --context "${TALOS_CONTEXT}" config info 2>/dev/null; then
+    talosctl  config  add "${TALOS_CONTEXT}"
+  fi
+  talosctl  config  context  "${TALOS_CONTEXT}"
+  showProgress "Setting context for kubectl"
+  kubectl  config  set-context  "${KUBECTL_CONTEXT}"
 }
 
 trap 'set +o xtrace; onError' ERR SIGINT SIGTERM
@@ -38,18 +54,17 @@ if [ ! -f "CONFIG.sh" ]; then
 fi
 source CONFIG.sh
 
-TALOS_CONTEXT="${CLUSTER_NAME}"
-IMAGE_SELECTOR="os=talos,version=${TALOS_VERSION}"
-CONTROL_SELECTOR="cluster=${CLUSTER_NAME},type=controlplane"
-WORKER_SELECTOR="cluster=${CLUSTER_NAME},type=worker"
+IMAGE_SELECTOR="version=${TALOS_VERSION},os=talos"
+CONTROL_SELECTOR="type=controlplane,cluster=${CLUSTER_NAME}"
+WORKER_SELECTOR="type=worker,cluster=${CLUSTER_NAME}"
 CONTROL_LB_NAME="control.${CLUSTER_NAME}"
 WORKER_LB_NAME="workers.${CLUSTER_NAME}"
-NETWORK_NAME="${CLUSTER_NAME}.network"
+TALOS_CONTEXT="${CLUSTER_NAME}"
 TALOS_SECRETS="${SCRIPT_DIR}/secrets.${CLUSTER_NAME}.yaml"
 TALOS_CONTROLPLANE="${SCRIPT_DIR}/controlplane.${CLUSTER_NAME}.yaml"
 TALOS_WORKER="${SCRIPT_DIR}/worker.${CLUSTER_NAME}.yaml"
 TALOSCONFIG="${SCRIPT_DIR}/talosconfig.${CLUSTER_NAME}.yaml"
-KUBECONFIG="${SCRIPT_DIR}/kubeconfig.${CLUSTER_NAME}.yaml"
 KUBECTL_CONTEXT="admin@${CLUSTER_NAME}"
-HCLOUD_CONTEXT="talos_${CLUSTER_NAME}"
-export TALOSCONFIG KUBECONFIG
+HCLOUD_CONTEXT="${CLUSTER_NAME}"
+export TALOSCONFIG
+export KUBECTL_CONTEXT
