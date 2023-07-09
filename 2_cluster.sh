@@ -134,14 +134,17 @@ talosctl  gen  config  --with-secrets "${TALOS_SECRETS}"  "${TALOS_CONTEXT}"  "h
 talosctl  config  endpoint  "${CONTROL_IPS[0]}"
 IFS=' '  talosctl  config  node  ${NODE_IPS[*]}
 (
+  MERGE_TALOSCONFIG="${TALOSCONFIG}"
   # Unset TALOSCONFIG in subshell to run these commands against the default config
   TALOSCONFIG=
   if !  talosctl --context "talos-default" config info 2>/dev/null; then
     talosctl  config  add "talos-default"
   fi
   talosctl  config  context  talos-default
-  talosctl  config  remove  "${TALOS_CONTEXT}"  --noconfirm
-  talosctl  config  merge  "${TALOSCONFIG}"
+  if  talosctl --context "${TALOS_CONTEXT}" config info 2>/dev/null; then
+    talosctl  config  remove  "${TALOS_CONTEXT}"  --noconfirm
+  fi
+  talosctl  config  merge  "${MERGE_TALOSCONFIG}"
 )
 
 waitForTcpPort  "${CONTROL_IPS[0]}"  50000
