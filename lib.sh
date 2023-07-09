@@ -44,6 +44,44 @@ function setContext() {
   kubectl  config  set-context  "${KUBECTL_CONTEXT}"
 }
 
+function getNodeIps() {
+  showProgress "Getting node IPs"
+  NODE_IPS=()
+  CONTROL_IPS=()
+  WORKER_IPS=()
+  for NR in $(seq 1 1 "${CONTROL_COUNT}"); do
+    CONTROL_NAME="control${NR}.${CLUSTER_NAME}"
+    NODE_IPS+=("$( hcloud server ip "${CONTROL_NAME}" )")
+    CONTROL_IPS+=("$( hcloud server ip "${CONTROL_NAME}" )")
+  done
+  for NR in $(seq 1 1 "${WORKER_COUNT}"); do
+    NODE_NAME="worker${NR}.${CLUSTER_NAME}"
+    NODE_IPS+=("$( hcloud server ip "${NODE_NAME}" )")
+    WORKER_IPS+=("$( hcloud server ip "${NODE_NAME}" )")
+  done
+  NODE_IPS_COMMA="$( IFS=','; echo "${NODE_IPS[*]}" )"
+  CONTROL_IPS_COMMA="$( IFS=','; echo "${CONTROL_IPS[*]}" )"
+  WORKER_IPS_COMMA="$( IFS=','; echo "${WORKER_IPS[*]}" )"
+}
+
+function getLoadBalancerIps() {
+  showProgress "Getting load balancer IPs"
+  CONTROL_LB_IP=$( hcloud load-balancer describe "${CONTROL_LB_NAME}" --output json | jq -r '.public_net.ipv4.ip' )
+  WORKER_LB_IP=$( hcloud load-balancer describe "${WORKER_LB_NAME}" --output json | jq -r '.public_net.ipv4.ip' )
+}
+
+function waitForTcpPort() {
+  local _HOST="$1"
+  local _PORT="$2"
+  showProgress "Waiting for host ${_HOST} to open TCP port ${_PORT}"
+  for TRY in $(seq 100); do
+    if nc -z "${_HOST}" "${_PORT}"; then
+      break;
+    fi
+    sleep 5
+  done
+}
+
 trap 'set +o xtrace; onError' ERR SIGINT SIGTERM
 
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
