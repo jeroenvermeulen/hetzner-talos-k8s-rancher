@@ -194,7 +194,7 @@ do
   NODE_SHORTNAME="$( echo "${LINE}" | cut -d'.' -f1 )"
   NODE_ID="$( echo "${LINE}" | awk '{print $2}' )"
   if [ "<none>" == "$( kubectl get node "${NODE_SHORTNAME}" -o custom-columns=ID:.spec.providerID --no-headers )" ]; then
-    kubectl  patch  node  "${NODE_SHORTNAME}"  --patch="{ \"spec\": {\"providerID\":\"${NODE_ID}\"} }"
+    kubectl  patch  node  "${NODE_SHORTNAME}"  --patch="{ \"spec\": {\"providerID\":\"hcloud://${NODE_ID}\"} }"
   fi
   PROVIDER_ID="$( kubectl get node "${NODE_SHORTNAME}" -o custom-columns=ID:.spec.providerID --no-headers )"
   if [ "${NODE_ID}" != "${PROVIDER_ID}" ]; then
