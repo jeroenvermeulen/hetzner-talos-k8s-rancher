@@ -13,11 +13,16 @@ variable "talos_version" {
   default = "v1.4.6"
 }
 
+variable "hcloud_token" {
+  type    = string
+}
+
 locals {
   image = "https://github.com/siderolabs/talos/releases/download/${var.talos_version}/hcloud-amd64.raw.xz"
 }
 
 source "hcloud" "talos" {
+  token        = "${var.hcloud_token}"
   rescue       = "linux64"
   image        = "debian-11"
   location     = "hel1"

@@ -13,8 +13,9 @@ IMAGE_ID=$( hcloud image list --selector "${IMAGE_SELECTOR}" --output noheader  
 
 if [ -z "${IMAGE_ID}" ]; then
   showProgress "Build image using Packer"
+  HCLOUD_TOKEN="$( grep -A1 "name = '${HCLOUD_CONTEXT}'" ~/.config/hcloud/cli.toml | tail -n1 | cut -d\' -f2 )"
   packer  init  hcloud.pkr.hcl
-  packer  build  -var "talos_version=${TALOS_VERSION}"  hcloud.pkr.hcl
+  packer  build  -var "talos_version=${TALOS_VERSION}"  -var "hcloud_token=${HCLOUD_TOKEN}"  hcloud.pkr.hcl
 fi
 
 showProgress "List image"
