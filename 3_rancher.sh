@@ -24,8 +24,6 @@ if  ! kubectl get namespace --no-headers -o name | grep -x "namespace/${NAMESPAC
       --set "deployment.replicas=$((WORKER_COUNT))" \
       --set "logs.general.level=INFO" \
       --set "service.spec.externalTrafficPolicy=Local" \
-      --set "service.spec.externalIPs={${WORKER_IPS_COMMA}}" \
-      --set "service.spec.loadBalancerIP=${WORKER_LB_IP}" \
       --set-json "service.annotations={ \
             \"load-balancer.hetzner.cloud/name\":\"${WORKER_LB_NAME}\", \
             \"load-balancer.hetzner.cloud/location\":\"${WORKER_LB_LOCATION}\", \

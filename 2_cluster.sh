@@ -18,20 +18,23 @@ if  ! hcloud load-balancer list --output noheader  --output columns=name | grep 
     --type "$( echo ${CONTROL_LB_TYPE} | tr '[:upper:]' '[:lower:]' )"
 fi
 
-TARGET_JSON=$( hcloud load-balancer describe "${CONTROL_LB_NAME}" --output json | jq ".targets[] | select(.label_selector.selector == \"${CONTROL_SELECTOR}\")" )
+TARGET_JSON=$( hcloud load-balancer describe "${CONTROL_LB_NAME}" --output json \
+               | jq ".targets[] | select(.label_selector.selector == \"${CONTROL_SELECTOR}\")" )
 if [ -z "${TARGET_JSON}" ]; then
   hcloud  load-balancer  add-target  "${CONTROL_LB_NAME}" \
       --label-selector "${CONTROL_SELECTOR}"
 fi
 
-PORT=6443
-SERVICE_JSON=$( hcloud load-balancer describe "${CONTROL_LB_NAME}" --output json | jq ".services[] | select(.listen_port == ${PORT})" )
-if [ -z "${SERVICE_JSON}" ]; then
-  hcloud  load-balancer  add-service  "${CONTROL_LB_NAME}" \
-      --listen-port "${PORT}" \
-      --destination-port "${PORT}" \
-      --protocol tcp
-fi
+for PORT in 6443 50000; do
+  SERVICE_JSON=$( hcloud load-balancer describe "${CONTROL_LB_NAME}" --output json \
+                  | jq ".services[] | select(.listen_port == ${PORT})" )
+  if [ -z "${SERVICE_JSON}" ]; then
+    hcloud  load-balancer  add-service  "${CONTROL_LB_NAME}" \
+        --listen-port "${PORT}" \
+        --destination-port "${PORT}" \
+        --protocol tcp
+  fi
+done
 
 showProgress "Worker load balancer"
 
@@ -43,13 +46,7 @@ if  ! hcloud load-balancer list --output noheader  --output columns=name | grep 
     --type "$( echo ${WORKER_LB_TYPE} | tr '[:upper:]' '[:lower:]' )"
 fi
 
-TARGET_JSON=$( hcloud load-balancer describe "${WORKER_LB_NAME}" --output json | jq ".targets[] | select(.label_selector.selector == \"${WORKER_SELECTOR}\")" )
-if [ -z "${TARGET_JSON}" ]; then
-  hcloud  load-balancer  add-target  "${WORKER_LB_NAME}" \
-      --label-selector "${WORKER_SELECTOR}"
-fi
-
-# Traefik will add services to worker load balancer.
+# Traefik will add targets + services to worker load balancer.
 
 getLoadBalancerIps
 
@@ -62,15 +59,23 @@ showProgress "Generate Talos configs for controlplane and workers"
   fi
   talosctl  gen  config  --with-secrets "${TALOS_SECRETS}"  "${TALOS_CONTEXT}"  "https://${CONTROL_LB_IP}:6443" \
     --config-patch @talos-patch.yaml \
+    --config-patch @talos-patch-control.yaml \
     --kubernetes-version "${KUBE_VERSION}" \
+    --additional-sans "${CONTROL_LB_IP},${CONTROL_LB_NAME}" \
     --output-types controlplane \
     --output "${TALOS_CONTROLPLANE}" \
     --force
+  VOLUME_ADD=()
+  if [ "${WORKER_DATA_VOLUME}" -gt 0 ]; then
+    VOLUME_ADD=( --config-patch @talos-patch-data.yaml )
+  fi
   talosctl  gen  config  --with-secrets "${TALOS_SECRETS}"  "${TALOS_CONTEXT}"  "https://${CONTROL_LB_IP}:6443" \
     --config-patch @talos-patch.yaml \
     --kubernetes-version "${KUBE_VERSION}" \
+    --additional-sans "${CONTROL_LB_IP},${CONTROL_LB_NAME}" \
     --output-types worker \
     --output "${TALOS_WORKER}" \
+    ${VOLUME_ADD[@]} \
     --force
 )
 
@@ -88,7 +93,8 @@ for NR in $(seq 1 1 "${CONTROL_COUNT}"); do
   if  hcloud server list --output noheader  --output columns=name | grep "^${NODE_NAME}$"; then
     continue
   fi
-  hcloud server create --name "${NODE_NAME}" \
+  hcloud  server  create \
+      --name "${NODE_NAME}" \
       --image "${IMAGE_ID}" \
       --type "$( echo ${CONTROL_TYPE} | tr '[:upper:]' '[:lower:]' )" \
       --location "${CONTROL_LOCATION[$((NR-1))]}" \
@@ -103,12 +109,26 @@ for NR in $(seq 1 1 "${WORKER_COUNT}"); do
   if  hcloud server list --output noheader  --output columns=name | grep "^${NODE_NAME}$"; then
     continue
   fi
-  hcloud server create --name "${NODE_NAME}" \
+  VOLUME_ADD=()
+  if [ "${WORKER_DATA_VOLUME}" -gt 0 ]; then
+    VOLUME_NAME="${NODE_NAME}-data"
+    if  ! hcloud volume list --output noheader  --output columns=name | grep "^${VOLUME_NAME}$"; then
+      hcloud  volume  create \
+        --size "${WORKER_DATA_VOLUME}" \
+        --location "${WORKER_LOCATION[$((NR-1))]}" \
+        --name "${VOLUME_NAME}" \
+        --format xfs
+    fi
+    VOLUME_ADD=( --automount  --volume "${VOLUME_NAME}" )
+  fi
+  hcloud  server  create \
+      --name "${NODE_NAME}" \
       --image "${IMAGE_ID}" \
       --type "$( echo ${WORKER_TYPE} | tr '[:upper:]' '[:lower:]' )" \
       --location "${WORKER_LOCATION[$((NR-1))]}" \
       --label "${WORKER_SELECTOR}" \
-      --user-data-from-file  "${TALOS_WORKER}"  >/dev/null &
+      --user-data-from-file  "${TALOS_WORKER}" \
+      ${VOLUME_ADD[@]} >/dev/null &
 done
 
 showProgress "Wait till first control node is running"
@@ -131,17 +151,17 @@ talosctl  gen  config  --with-secrets "${TALOS_SECRETS}"  "${TALOS_CONTEXT}"  "h
   --output-types talosconfig  \
   --output "${TALOSCONFIG}"  \
   --force
-talosctl  config  endpoint  "${CONTROL_IPS[0]}"
-IFS=' '  talosctl  config  node  ${NODE_IPS[*]}
+talosctl  config  endpoint  "${CONTROL_LB_IP}"
+IFS=' '  talosctl  config  nodes  ${CONTROL_LB_IP}
 (
   MERGE_TALOSCONFIG="${TALOSCONFIG}"
   # Unset TALOSCONFIG in subshell to run these commands against the default config
   TALOSCONFIG=
-  if !  talosctl --context "talos-default" config info 2>/dev/null; then
-    talosctl  config  add "talos-default"
+  if !  talosctl  --context "talos-default"  config  info  2>/dev/null;  then
+    talosctl  config  add  "talos-default"
   fi
   talosctl  config  context  talos-default
-  if  talosctl --context "${TALOS_CONTEXT}" config info 2>/dev/null; then
+  if  talosctl  --context "${TALOS_CONTEXT}"  config  info  2>/dev/null; then
     talosctl  config  remove  "${TALOS_CONTEXT}"  --noconfirm
   fi
   talosctl  config  merge  "${MERGE_TALOSCONFIG}"
@@ -151,13 +171,14 @@ waitForTcpPort  "${CONTROL_IPS[0]}"  50000
 
 showProgress "Bootstrap Talos cluster"
 
-if ! talosctl  etcd status 2>/dev/null | grep "${CONTROL_IPS[0]}"; then
-  talosctl  bootstrap  --nodes "${CONTROL_IPS[0]}"
+if ! talosctl  etcd  status  --endpoints "${CONTROL_IPS[0]}"  --nodes "${CONTROL_IPS[0]}"  2>/dev/null \
+   | grep "${CONTROL_IPS[0]}"; then
+  talosctl  bootstrap  --endpoints "${CONTROL_IPS[0]}"  --nodes "${CONTROL_IPS[0]}"
 fi
 
 showProgress "Update kubeconfig for kubectl"
 
-talosctl  kubeconfig  --force  --nodes "${CONTROL_IPS[0]}"
+talosctl  kubeconfig  --force  --endpoints "${CONTROL_IPS[0]}"  --nodes "${CONTROL_IPS[0]}"
 
 waitForTcpPort  "${CONTROL_LB_IP}"  6443
 
@@ -192,9 +213,9 @@ showProgress "Patch nodes to add providerID"
 while IFS= read -r -u3 LINE
 do
   NODE_SHORTNAME="$( echo "${LINE}" | cut -d'.' -f1 )"
-  NODE_ID="$( echo "${LINE}" | awk '{print $2}' )"
+  NODE_ID="hcloud://$( echo "${LINE}" | awk '{print $2}' )"
   if [ "<none>" == "$( kubectl get node "${NODE_SHORTNAME}" -o custom-columns=ID:.spec.providerID --no-headers )" ]; then
-    kubectl  patch  node  "${NODE_SHORTNAME}"  --patch="{ \"spec\": {\"providerID\":\"hcloud://${NODE_ID}\"} }"
+    kubectl  patch  node  "${NODE_SHORTNAME}"  --patch="{ \"spec\": {\"providerID\":\"${NODE_ID}\"} }"
   fi
   PROVIDER_ID="$( kubectl get node "${NODE_SHORTNAME}" -o custom-columns=ID:.spec.providerID --no-headers )"
   if [ "${NODE_ID}" != "${PROVIDER_ID}" ]; then

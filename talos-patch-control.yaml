@@ -1,0 +1,6 @@
+machine:
+  nodeLabels:
+    # These are deprecated but make Rancher happy
+    node-role.kubernetes.io/control-plane: 'true'
+    node-role.kubernetes.io/etcd: 'true'
+    node-role.kubernetes.io/master: 'true'

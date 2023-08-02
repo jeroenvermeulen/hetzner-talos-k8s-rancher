@@ -13,4 +13,5 @@ WORKER_LB_LOCATION="fsn1"                       # https://docs.hetzner.com/cloud
 WORKER_COUNT=2                                  # Number of worker nodes
 WORKER_LOCATION=(fsn1 hel1 nbg1)                # Needs as many entries as WORKER_COUNT
 WORKER_TYPE="CX31"                              # https://docs.hetzner.com/cloud/servers/overview/
-TALOS_VERSION="v1.4.6"                          # https://github.com/siderolabs/talos/releases
+WORKER_DATA_VOLUME=0                            # GB, set to 0 to skip creating data volume
+TALOS_VERSION="v1.4.7"                          # https://github.com/siderolabs/talos/releases
