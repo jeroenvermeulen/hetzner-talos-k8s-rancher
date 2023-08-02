@@ -22,8 +22,8 @@ if  ! kubectl get namespace --no-headers -o name | grep -x "namespace/${NAMESPAC
       --namespace  "${NAMESPACE}" \
       --create-namespace \
       --set "deployment.replicas=$((WORKER_COUNT))" \
-      --set "externalTrafficPolicy=Local" \
       --set "logs.general.level=INFO" \
+      --set "service.spec.externalTrafficPolicy=Local" \
       --set "service.spec.externalIPs={${WORKER_IPS_COMMA}}" \
       --set "service.spec.loadBalancerIP=${WORKER_LB_IP}" \
       --set-json "service.annotations={ \
