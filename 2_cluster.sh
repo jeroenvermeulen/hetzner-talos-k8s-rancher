@@ -187,6 +187,22 @@ if  ! kubectl get -n "${NAMESPACE}" secret --no-headers -o name | grep -x "secre
 fi
 kubectl  apply  -f https://github.com/hetznercloud/hcloud-cloud-controller-manager/releases/latest/download/ccm.yaml
 
+showProgress "Patch nodes to add providerID"
+
+while IFS= read -r -u3 LINE
+do
+  NODE_SHORTNAME="$( echo "${LINE}" | cut -d'.' -f1 )"
+  NODE_ID="$( echo "${LINE}" | awk '{print $2}' )"
+  if [ "<none>" == "$( kubectl get node "${NODE_SHORTNAME}" -o custom-columns=ID:.spec.providerID --no-headers )" ]; then
+    kubectl  patch  node  "${NODE_SHORTNAME}"  --patch="{ \"spec\": {\"providerID\":\"${NODE_ID}\"} }"
+  fi
+  PROVIDER_ID="$( kubectl get node "${NODE_SHORTNAME}" -o custom-columns=ID:.spec.providerID --no-headers )"
+  if [ "${NODE_ID}" != "${PROVIDER_ID}" ]; then
+    showError "The providerID of '${NODE_SHORTNAME}' in K8S is '${PROVIDER_ID}' while it is '${NODE_ID}' at Hetzner. It is not possible to change this."
+    exit 1;
+  fi
+done 3<<< "$( hcloud server list --output noheader  --output columns=name,id )"
+
 showProgress "Show nodes"
 
 kubectl  get  nodes  -o wide

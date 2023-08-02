@@ -47,7 +47,7 @@ if  ! kubectl get namespace --no-headers -o name | grep -x "namespace/${NAMESPAC
   helm  install  cert-manager  jetstack/cert-manager \
       --namespace  "${NAMESPACE}" \
       --create-namespace \
-      --version  v1.12.2 \
+      --version  v1.12.3 \
       --set  installCRDs=true \
       --set  startupapicheck.timeout=5m \
       --wait \
