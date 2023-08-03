@@ -8,6 +8,11 @@ machine:
           - bind
           - rshared
           - rw
+  nodeLabels:
+    openebs.io/data-plane: true
+    openebs.io/engine: mayastor
+  sysctls:
+    vm.nr_hugepages: "1024"
   disks:
     - device: /dev/sdb
       partitions:

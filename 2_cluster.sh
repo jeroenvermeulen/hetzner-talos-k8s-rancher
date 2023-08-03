@@ -182,7 +182,12 @@ fi
 
 showProgress "Update kubeconfig for kubectl"
 
+OLD_KUBECONFIG="${KUBECONFIG}"
+if [[ "$KUBECONFIG" == *:* ]]; then
+  KUBECONFIG="${KUBECONFIG%%:*}"
+fi
 talosctl  kubeconfig  --force  --endpoints "${CONTROL_IPS[0]}"  --nodes "${CONTROL_IPS[0]}"
+KUBECONFIG="${OLD_KUBECONFIG}"
 
 waitForTcpPort  "${CONTROL_LB_IP}"  6443
 
