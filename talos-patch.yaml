@@ -3,6 +3,14 @@ machine:
     registerWithFQDN: true
     extraArgs:
       rotate-server-certificates: true
+    extraMounts:
+      - destination: /var/storage/local
+        type: bind
+        source: /var/storage/local
+        options:
+          - bind
+          - rshared
+          - rw
   install:
     extensions:
       - image: ghcr.io/siderolabs/iscsi-tools:v0.1.4

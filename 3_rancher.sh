@@ -75,6 +75,10 @@ if  ! kubectl get namespace --no-headers -o name | grep -x "namespace/${NAMESPAC
 fi
 kubectl -n "${NAMESPACE}" get pods
 
+showProgress "Install Local Path Storage"
+
+kubectl apply -f "${DEPLOY_DIR}/local-path-storage.yaml"
+
 showProgress "Show Rancher URL"
 
 showNotice "Go to Rancher:  https://${RANCHER_HOSTNAME}/dashboard/?setup=$(kubectl get secret --namespace cattle-system bootstrap-secret -o go-template='{{.data.bootstrapPassword|base64decode}}')"

@@ -1,19 +1,6 @@
 machine:
-  kubelet:
-    extraMounts:
-      - destination: /var/mnt/storage
-        type: bind
-        source: /var/mnt/storage
-        options:
-          - bind
-          - rshared
-          - rw
   nodeLabels:
     openebs.io/data-plane: true
     openebs.io/engine: mayastor
   sysctls:
     vm.nr_hugepages: "1024"
-  disks:
-    - device: /dev/sdb
-      partitions:
-        - mountpoint: /var/mnt/storage
