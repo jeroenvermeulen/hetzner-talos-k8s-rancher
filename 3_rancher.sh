@@ -21,10 +21,12 @@ if  ! kubectl get namespace --no-headers -o name | grep -x "namespace/${NAMESPAC
   helm  install  traefik  traefik/traefik \
       --namespace  "${NAMESPACE}" \
       --create-namespace \
-      --set "deployment.replicas=$((WORKER_COUNT))" \
+      --set "deployment.replicas=$((CONTROL_COUNT+WORKER_COUNT))" \
       --set "logs.general.level=INFO" \
       --set "service.spec.externalTrafficPolicy=Local" \
       --set "service.spec.loadBalancerIP=${WORKER_LB_IP}" \
+      --set "providers.kubernetesIngress.publishedService.enabled=true" \
+      --set-json "tolerations=[{\"effect\":\"NoSchedule\",\"operator\":\"Exists\"}]" \
       --set-json "service.annotations={ \
             \"load-balancer.hetzner.cloud/name\":\"${WORKER_LB_NAME}\", \
             \"load-balancer.hetzner.cloud/location\":\"${WORKER_LB_LOCATION}\", \
