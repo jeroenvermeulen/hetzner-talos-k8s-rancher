@@ -11,12 +11,16 @@ getNodeIps
 
 for NR in $(seq 1 1 "${CONTROL_COUNT}"); do
   NODE_NAME="control${NR}.${CLUSTER_NAME}"
+  CONFIG_FILE="${SCRIPT_DIR}/node_${NODE_NAME}.yaml"
   showProgress "Apply controller config to ${NODE_NAME}"
-  talosctl apply-config -f "${TALOS_CONTROLPLANE}" -e "${CONTROL_IPS[$((NR-1))]}" -n "${CONTROL_IPS[$((NR-1))]}"
+  talosctl  apply-config  -f "${CONFIG_FILE}"  --endpoints "${CONTROL_IPS[$((NR-1))]}"  --nodes "${CONTROL_IPS[$((NR-1))]}"
 done
 
 for NR in $(seq 1 1 "${WORKER_COUNT}"); do
   NODE_NAME="worker${NR}.${CLUSTER_NAME}"
+  CONFIG_FILE="${SCRIPT_DIR}/node_${NODE_NAME}.yaml"
   showProgress "Apply controller config to ${NODE_NAME}"
-  talosctl apply-config -f "${TALOS_WORKER}" -e "${CONTROL_IPS[$((NR-1))]}" -n "${CONTROL_IPS[$((NR-1))]}"
+  talosctl  apply-config  -f "${CONFIG_FILE}"  --endpoints "${CONTROL_IPS[$((NR-1))]}"  --nodes "${CONTROL_IPS[$((NR-1))]}"
 done
+
+showNotice "==== Finished $(basename "$0") ===="

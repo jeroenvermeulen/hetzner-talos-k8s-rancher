@@ -57,30 +57,7 @@ showProgress "Generate Talos configs for controlplane and workers"
   if [ ! -f "${TALOS_SECRETS}" ]; then
     talosctl  gen  secrets  -o "${TALOS_SECRETS}"
   fi
-  talosctl  gen  config  --with-secrets "${TALOS_SECRETS}"  "${TALOS_CONTEXT}"  "https://${CONTROL_LB_IP}:6443" \
-    --config-patch @talos-patch.yaml \
-    --config-patch @talos-patch-control.yaml \
-    --kubernetes-version "${KUBE_VERSION}" \
-    --additional-sans "${CONTROL_LB_IP},${CONTROL_LB_NAME}" \
-    --output-types controlplane \
-    --output "${TALOS_CONTROLPLANE}" \
-    --force
-  VOLUME_ADD=()
-  if [ "${WORKER_DATA_VOLUME}" -gt 0 ]; then
-    VOLUME_ADD=( --config-patch @talos-patch-data.yaml )
-  fi
-  talosctl  gen  config  --with-secrets "${TALOS_SECRETS}"  "${TALOS_CONTEXT}"  "https://${CONTROL_LB_IP}:6443" \
-    --config-patch @talos-patch.yaml \
-    --kubernetes-version "${KUBE_VERSION}" \
-    --additional-sans "${CONTROL_LB_IP},${CONTROL_LB_NAME}" \
-    --output-types worker \
-    --output "${TALOS_WORKER}" \
-    ${VOLUME_ADD[@]} \
-    --force
 )
-
-talosctl  validate  --config "${TALOS_CONTROLPLANE}"  --mode cloud
-talosctl  validate  --config "${TALOS_WORKER}"        --mode cloud
 
 showProgress "Get disk image id"
 
@@ -90,6 +67,19 @@ showProgress "Start control nodes"
 
 for NR in $(seq 1 1 "${CONTROL_COUNT}"); do
   NODE_NAME="control${NR}.${CLUSTER_NAME}"
+  CONFIG_FILE="${SCRIPT_DIR}/node_${NODE_NAME}.yaml"
+  (
+    umask 0077
+    talosctl  gen  config  --with-secrets "${TALOS_SECRETS}"  "${TALOS_CONTEXT}"  "https://${CONTROL_LB_IP}:6443" \
+      --config-patch @talos-patch.yaml \
+      --config-patch @talos-patch-control.yaml \
+      --config-patch="[{\"op\":\"replace\", \"path\":\"/machine/network/hostname\", \"value\": \"${NODE_NAME}\"}]" \
+      --kubernetes-version "${KUBE_VERSION}" \
+      --additional-sans "${CONTROL_LB_IP},${CONTROL_LB_NAME}" \
+      --output-types controlplane \
+      --output "${CONFIG_FILE}" \
+      --force
+  )
   if  hcloud server list --output noheader  --output columns=name | grep "^${NODE_NAME}$"; then
     continue
   fi
@@ -99,17 +89,16 @@ for NR in $(seq 1 1 "${CONTROL_COUNT}"); do
       --type "$( echo ${CONTROL_TYPE} | tr '[:upper:]' '[:lower:]' )" \
       --location "${CONTROL_LOCATION[$((NR-1))]}" \
       --label "${CONTROL_SELECTOR}" \
-      --user-data-from-file  "${TALOS_CONTROLPLANE}"  >/dev/null &
+      --user-data-from-file  "${CONFIG_FILE}"  >/dev/null &
 done
 
 showProgress "Start worker nodes"
 
 for NR in $(seq 1 1 "${WORKER_COUNT}"); do
   NODE_NAME="worker${NR}.${CLUSTER_NAME}"
-  if  hcloud server list --output noheader  --output columns=name | grep "^${NODE_NAME}$"; then
-    continue
-  fi
-  VOLUME_ADD=()
+  CONFIG_FILE="${SCRIPT_DIR}/node_${NODE_NAME}.yaml"
+  VOLUME_MOUNT=()
+  VOLUME_PATCH=()
   if [ "${WORKER_DATA_VOLUME}" -gt 0 ]; then
     VOLUME_NAME="${NODE_NAME}-data"
     if  ! hcloud volume list --output noheader  --output columns=name | grep "^${VOLUME_NAME}$"; then
@@ -119,7 +108,23 @@ for NR in $(seq 1 1 "${WORKER_COUNT}"); do
         --name "${VOLUME_NAME}" \
         --format xfs
     fi
-    VOLUME_ADD=( --automount  --volume "${VOLUME_NAME}" )
+    VOLUME_MOUNT=( --automount  --volume "${VOLUME_NAME}" )
+    VOLUME_PATCH=( --config-patch @talos-patch-data.yaml )
+  fi
+  (
+    umask 0077
+    talosctl  gen  config  --with-secrets "${TALOS_SECRETS}"  "${TALOS_CONTEXT}"  "https://${CONTROL_LB_IP}:6443" \
+      --config-patch @talos-patch.yaml \
+      --config-patch="[{\"op\":\"replace\", \"path\":\"/machine/network/hostname\", \"value\": \"${NODE_NAME}\"}]" \
+      --kubernetes-version "${KUBE_VERSION}" \
+      --additional-sans "${CONTROL_LB_IP},${CONTROL_LB_NAME}" \
+      --output-types worker \
+      --output "${CONFIG_FILE}" \
+      ${VOLUME_PATCH[@]} \
+      --force
+  )
+  if  hcloud server list --output noheader  --output columns=name | grep "^${NODE_NAME}$"; then
+    continue
   fi
   hcloud  server  create \
       --name "${NODE_NAME}" \
@@ -127,13 +132,12 @@ for NR in $(seq 1 1 "${WORKER_COUNT}"); do
       --type "$( echo ${WORKER_TYPE} | tr '[:upper:]' '[:lower:]' )" \
       --location "${WORKER_LOCATION[$((NR-1))]}" \
       --label "${WORKER_SELECTOR}" \
-      --user-data-from-file  "${TALOS_WORKER}" \
-      ${VOLUME_ADD[@]} >/dev/null &
+      --user-data-from-file  "${CONFIG_FILE}" \
+      ${VOLUME_MOUNT[@]} \
+      >/dev/null &
 done
 
 showProgress "Wait till first control node is running"
-
-CONTROL1_NAME="control1.${CLUSTER_NAME}"
 
 for TRY in $(seq 100); do
   hcloud server list
@@ -186,7 +190,7 @@ showProgress "Wait for first control node to become Ready"
 
 for TRY in $(seq 100); do
   kubectl get nodes || true
-  if  kubectl get nodes --no-headers control1 | grep -E "\sReady\s"; then
+  if  kubectl get nodes --no-headers "${CONTROL1_NAME}" | grep -E "\sReady\s"; then
     break
   fi
   sleep 5
@@ -212,14 +216,14 @@ showProgress "Patch nodes to add providerID"
 
 while IFS= read -r -u3 LINE
 do
-  NODE_SHORTNAME="$( echo "${LINE}" | cut -d'.' -f1 )"
+  NODE_NAME="$( echo "${LINE}" | awk '{print $1}' )"
   NODE_ID="hcloud://$( echo "${LINE}" | awk '{print $2}' )"
-  if [ "<none>" == "$( kubectl get node "${NODE_SHORTNAME}" -o custom-columns=ID:.spec.providerID --no-headers )" ]; then
-    kubectl  patch  node  "${NODE_SHORTNAME}"  --patch="{ \"spec\": {\"providerID\":\"${NODE_ID}\"} }"
+  if [ "<none>" == "$( kubectl get node "${NODE_NAME}" -o custom-columns=ID:.spec.providerID --no-headers )" ]; then
+    kubectl  patch  node  "${NODE_NAME}"  --patch="{ \"spec\": {\"providerID\":\"${NODE_ID}\"} }"
   fi
-  PROVIDER_ID="$( kubectl get node "${NODE_SHORTNAME}" -o custom-columns=ID:.spec.providerID --no-headers )"
+  PROVIDER_ID="$( kubectl get node "${NODE_NAME}" -o custom-columns=ID:.spec.providerID --no-headers )"
   if [ "${NODE_ID}" != "${PROVIDER_ID}" ]; then
-    showError "The providerID of '${NODE_SHORTNAME}' in K8S is '${PROVIDER_ID}' while it is '${NODE_ID}' at Hetzner. It is not possible to change this."
+    showError "The providerID of '${NODE_NAME}' in K8S is '${PROVIDER_ID}' while it is '${NODE_ID}' at Hetzner. It is not possible to change this."
     exit 1;
   fi
 done 3<<< "$( hcloud server list --output noheader  --output columns=name,id )"

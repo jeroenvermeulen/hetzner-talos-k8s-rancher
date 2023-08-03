@@ -1,7 +1,6 @@
 .idea
 *~
 /secrets.*.yaml
-/controlplane.*.yaml
-/worker.*.yaml
 /talosconfig.*.yaml
 /CONFIG.sh
+/node_*.yaml

@@ -1,5 +1,6 @@
 machine:
   kubelet:
+    registerWithFQDN: true
     extraArgs:
       rotate-server-certificates: true
 cluster:

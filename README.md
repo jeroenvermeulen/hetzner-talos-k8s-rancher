@@ -4,6 +4,7 @@
 - [Hetzner Cloud](https://www.hetzner.com/cloud) hosting
 - [Talos Linux](https://www.talos.dev/) secure, immutable, and minimal
 - [Kubernetes](https://kubernetes.io/) container orchestrator
+- [Rancher](https://www.rancher.com/) enterprise Kubernetes management, dashboard
 - [Traefik](https://traefik.io/traefik/) load balancer
 - [Cert-Manager](https://cert-manager.io/) manage Let's Encrypt certificates
 
