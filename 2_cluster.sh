@@ -206,7 +206,8 @@ showProgress "Wait for cluster to become healthy"
 talosctl  health \
   --nodes "${CONTROL_IPS[0]}" \
   --control-plane-nodes "${CONTROL_IPS_COMMA}" \
-  --worker-nodes "${WORKER_IPS_COMMA}"
+  --worker-nodes "${WORKER_IPS_COMMA}" \
+  --wait-timeout 60m
 
 showProgress "Create Hetzner Cloud secret and import Cloud Controller Manager manifest"
 
