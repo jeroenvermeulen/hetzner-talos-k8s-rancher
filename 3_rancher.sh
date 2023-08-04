@@ -16,28 +16,26 @@ getLoadBalancerIps
 helm  repo  add  traefik https://traefik.github.io/charts
 helm  repo  update  traefik
 NAMESPACE="traefik"
-if  ! kubectl get namespace --no-headers -o name | grep -x "namespace/${NAMESPACE}"; then
-  # https://pkg.go.dev/github.com/hetznercloud/hcloud-cloud-controller-manager/internal/annotation#Name
-  helm  install  traefik  traefik/traefik \
-      --namespace  "${NAMESPACE}" \
-      --create-namespace \
-      --set "deployment.kind=DaemonSet" \
-      --set "logs.general.level=INFO" \
-      --set "service.spec.externalTrafficPolicy=Local" \
-      --set "service.spec.loadBalancerIP=${WORKER_LB_IP}" \
-      --set "providers.kubernetesIngress.publishedService.enabled=true" \
-      --set-json "tolerations=[{\"effect\":\"NoSchedule\",\"operator\":\"Exists\"}]" \
-      --set-json "service.annotations={ \
-            \"load-balancer.hetzner.cloud/name\":\"${WORKER_LB_NAME}\", \
-            \"load-balancer.hetzner.cloud/location\":\"${WORKER_LB_LOCATION}\", \
-            \"load-balancer.hetzner.cloud/algorithm-type\":\"least_connections\", \
-            \"load-balancer.hetzner.cloud/uses-proxyprotocol\":\"false\", \
-            \"external-dns.alpha.kubernetes.io/hostname\":\"${WORKER_LB_NAME}\" \
-      }"\
-      --wait \
-      --timeout 5m \
-      --debug
+HELM_ACTION="install"
+if  kubectl get namespace --no-headers -o name | grep -x "namespace/${NAMESPACE}"; then
+  HELM_ACTION="upgrade"
 fi
+# https://pkg.go.dev/github.com/hetznercloud/hcloud-cloud-controller-manager/internal/annotation#Name
+helm  "${HELM_ACTION}"  traefik  traefik/traefik \
+    --namespace  "${NAMESPACE}" \
+    --create-namespace \
+    --values "${DEPLOY_DIR}/traefik-values.yaml" \
+    --set "service.spec.loadBalancerIP=${WORKER_LB_IPV4}" \
+    --set-json "ports.web.proxyProtocol.trustedIPs=[\"${WORKER_LB_IPV4}\",\"${WORKER_LB_IPV6}\"]" \
+    --set-json "ports.web.forwardedHeaders.trustedIPs=[\"${WORKER_LB_IPV4}\",\"${WORKER_LB_IPV6}\"]" \
+    --set-json "service.annotations={ \
+          \"load-balancer.hetzner.cloud/name\":\"${WORKER_LB_NAME}\", \
+          \"load-balancer.hetzner.cloud/location\":\"${WORKER_LB_LOCATION}\", \
+          \"external-dns.alpha.kubernetes.io/hostname\":\"${WORKER_LB_NAME}\" \
+    }"\
+    --wait \
+    --timeout 5m \
+    --debug
 kubectl -n "${NAMESPACE}" get pods
 
 showProgress "Install Jetstack Cert-Manager for Let's Encrypt"
@@ -45,17 +43,19 @@ showProgress "Install Jetstack Cert-Manager for Let's Encrypt"
 helm  repo  add  jetstack  https://charts.jetstack.io
 helm  repo  update  jetstack
 NAMESPACE="cert-manager"
-if  ! kubectl get namespace --no-headers -o name | grep -x "namespace/${NAMESPACE}"; then
-  helm  install  cert-manager  jetstack/cert-manager \
-      --namespace  "${NAMESPACE}" \
-      --create-namespace \
-      --version  v1.12.3 \
-      --set  installCRDs=true \
-      --set  startupapicheck.timeout=5m \
-      --wait \
-      --timeout 10m \
-      --debug
+HELM_ACTION="install"
+if  kubectl get namespace --no-headers -o name | grep -x "namespace/${NAMESPACE}"; then
+  HELM_ACTION="upgrade"
 fi
+helm  "${HELM_ACTION}"  cert-manager  jetstack/cert-manager \
+    --namespace  "${NAMESPACE}" \
+    --create-namespace \
+    --version  v1.12.3 \
+    --set  installCRDs=true \
+    --set  startupapicheck.timeout=5m \
+    --wait \
+    --timeout 10m \
+    --debug
 kubectl -n "${NAMESPACE}" get pods
 
 showProgress "Install Rancher"
@@ -63,20 +63,23 @@ showProgress "Install Rancher"
 helm  repo  add  "rancher-${RANCHER_CHART_REPO}"  "https://releases.rancher.com/server-charts/${RANCHER_CHART_REPO}"
 helm  repo  update  "rancher-${RANCHER_CHART_REPO}"
 NAMESPACE="cattle-system"
-if  ! kubectl get namespace --no-headers -o name | grep -x "namespace/${NAMESPACE}"; then
-  helm  install  rancher rancher-${RANCHER_CHART_REPO}/rancher \
-      --namespace "${NAMESPACE}" \
-      --create-namespace \
-      --set "hostname=${RANCHER_HOSTNAME}" \
-      --set replicas=3 \
-      --set ingress.tls.source=letsEncrypt \
-      --set letsEncrypt.email=info@jeroenvermeulen.eu \
-      --set letsEncrypt.ingress.class=traefik \
-      --set global.cattle.psp.enable=false \
-      --wait \
-      --timeout 10m \
-      --debug
+HELM_ACTION="install"
+if  kubectl get namespace --no-headers -o name | grep -x "namespace/${NAMESPACE}"; then
+  HELM_ACTION="upgrade"
 fi
+helm  "${HELM_ACTION}"  rancher rancher-${RANCHER_CHART_REPO}/rancher \
+    --namespace "${NAMESPACE}" \
+    --create-namespace \
+    --set "hostname=${RANCHER_HOSTNAME}" \
+    --set replicas=3 \
+    --set ingress.tls.source=letsEncrypt \
+    --set letsEncrypt.email=info@jeroenvermeulen.eu \
+    --set letsEncrypt.ingress.class=traefik \
+    --set global.cattle.psp.enable=false \
+    --wait \
+    --timeout 10m \
+    --debug
+
 kubectl -n "${NAMESPACE}" get pods
 
 showProgress "Install Local Path Storage"

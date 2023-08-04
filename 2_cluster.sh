@@ -70,12 +70,12 @@ for NR in $(seq 1 1 "${CONTROL_COUNT}"); do
   CONFIG_FILE="${SCRIPT_DIR}/node_${NODE_NAME}.yaml"
   (
     umask 0077
-    talosctl  gen  config  --with-secrets "${TALOS_SECRETS}"  "${TALOS_CONTEXT}"  "https://${CONTROL_LB_IP}:6443" \
+    talosctl  gen  config  --with-secrets "${TALOS_SECRETS}"  "${TALOS_CONTEXT}"  "https://${CONTROL_LB_IPV4}:6443" \
       --config-patch @talos-patch.yaml \
       --config-patch @talos-patch-control.yaml \
       --config-patch="[{\"op\":\"replace\", \"path\":\"/machine/network/hostname\", \"value\": \"${NODE_NAME}\"}]" \
       --kubernetes-version "${KUBE_VERSION}" \
-      --additional-sans "${CONTROL_LB_IP},${CONTROL_LB_NAME}" \
+      --additional-sans "${CONTROL_LB_IPV4},${CONTROL_LB_NAME}" \
       --output-types controlplane \
       --output "${CONFIG_FILE}" \
       --force
@@ -113,11 +113,11 @@ for NR in $(seq 1 1 "${WORKER_COUNT}"); do
   fi
   (
     umask 0077
-    talosctl  gen  config  --with-secrets "${TALOS_SECRETS}"  "${TALOS_CONTEXT}"  "https://${CONTROL_LB_IP}:6443" \
+    talosctl  gen  config  --with-secrets "${TALOS_SECRETS}"  "${TALOS_CONTEXT}"  "https://${CONTROL_LB_IPV4}:6443" \
       --config-patch @talos-patch.yaml \
       --config-patch="[{\"op\":\"replace\", \"path\":\"/machine/network/hostname\", \"value\": \"${NODE_NAME}\"}]" \
       --kubernetes-version "${KUBE_VERSION}" \
-      --additional-sans "${CONTROL_LB_IP},${CONTROL_LB_NAME}" \
+      --additional-sans "${CONTROL_LB_IPV4},${CONTROL_LB_NAME}" \
       --output-types worker \
       --output "${CONFIG_FILE}" \
       ${VOLUME_PATCH[@]} \
@@ -151,12 +151,12 @@ getNodeIps
 
 showProgress "Generate talosconfig"
 
-talosctl  gen  config  --with-secrets "${TALOS_SECRETS}"  "${TALOS_CONTEXT}"  "https://${CONTROL_LB_IP}:6443" \
+talosctl  gen  config  --with-secrets "${TALOS_SECRETS}"  "${TALOS_CONTEXT}"  "https://${CONTROL_LB_IPV4}:6443" \
   --output-types talosconfig  \
   --output "${TALOSCONFIG}"  \
   --force
-talosctl  config  endpoint  "${CONTROL_LB_IP}"
-IFS=' '  talosctl  config  nodes  ${CONTROL_LB_IP}
+talosctl  config  endpoint  "${CONTROL_LB_IPV4}"
+IFS=' '  talosctl  config  nodes  ${CONTROL_LB_IPV4}
 (
   MERGE_TALOSCONFIG="${TALOSCONFIG}"
   # Unset TALOSCONFIG in subshell to run these commands against the default config
@@ -189,7 +189,7 @@ fi
 talosctl  kubeconfig  --force  --endpoints "${CONTROL_IPS[0]}"  --nodes "${CONTROL_IPS[0]}"
 KUBECONFIG="${OLD_KUBECONFIG}"
 
-waitForTcpPort  "${CONTROL_LB_IP}"  6443
+waitForTcpPort  "${CONTROL_LB_IPV4}"  6443
 
 showProgress "Wait for first control node to become Ready"
 
@@ -238,6 +238,6 @@ showProgress "Show nodes"
 
 kubectl  get  nodes  -o wide
 
-showNotice "Make sure the DNS of '${RANCHER_HOSTNAME}' resolves to the load balancer IP '${WORKER_LB_IP}'"
+showNotice "Make sure the DNS of '${RANCHER_HOSTNAME}' resolves to the load balancer IP '${WORKER_LB_IPV4}'"
 
 showNotice "==== Finished $(basename "$0") ===="

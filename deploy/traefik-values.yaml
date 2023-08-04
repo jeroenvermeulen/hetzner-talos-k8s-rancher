@@ -1,0 +1,30 @@
+---
+deployment:
+  kind: DaemonSet
+logs:
+  general:
+    level: INFO
+service:
+  spec:
+    externalTrafficPolicy: Local
+  annotations:
+    load-balancer.hetzner.cloud/algorithm-type: least_connections
+    load-balancer.hetzner.cloud/uses-proxyprotocol: true
+providers:
+  kubernetesIngress:
+    publishedService:
+      enabled: true
+tolerations:
+  - effect: NoSchedule
+    operator: Exists
+ports:
+  web:
+    proxyProtocol:
+      trustedIPs:
+        - "128.140.25.42"
+        - "2a01:4f8:c011:116::1"
+  websecure:
+    proxyProtocol:
+      trustedIPs:
+        - "128.140.25.42"
+        - "2a01:4f8:c011:116::1"

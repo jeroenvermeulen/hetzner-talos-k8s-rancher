@@ -66,8 +66,9 @@ function getNodeIps() {
 
 function getLoadBalancerIps() {
   showProgress "Getting load balancer IPs"
-  CONTROL_LB_IP=$( hcloud load-balancer describe "${CONTROL_LB_NAME}" --output json | jq -r '.public_net.ipv4.ip' )
-  WORKER_LB_IP=$( hcloud load-balancer describe "${WORKER_LB_NAME}" --output json | jq -r '.public_net.ipv4.ip' )
+  CONTROL_LB_IPV4=$( hcloud load-balancer describe "${CONTROL_LB_NAME}" --output json | jq -r '.public_net.ipv4.ip' )
+  WORKER_LB_IPV4=$( hcloud load-balancer describe "${WORKER_LB_NAME}" --output json | jq -r '.public_net.ipv4.ip' )
+  WORKER_LB_IPV6=$( hcloud load-balancer describe "${WORKER_LB_NAME}" --output json | jq -r '.public_net.ipv6.ip' )
 }
 
 function waitForTcpPort() {
