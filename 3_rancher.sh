@@ -21,7 +21,7 @@ if  ! kubectl get namespace --no-headers -o name | grep -x "namespace/${NAMESPAC
   helm  install  traefik  traefik/traefik \
       --namespace  "${NAMESPACE}" \
       --create-namespace \
-      --set "deployment.replicas=$((CONTROL_COUNT+WORKER_COUNT))" \
+      --set "deployment.kind=DaemonSet" \
       --set "logs.general.level=INFO" \
       --set "service.spec.externalTrafficPolicy=Local" \
       --set "service.spec.loadBalancerIP=${WORKER_LB_IP}" \
