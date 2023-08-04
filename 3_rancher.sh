@@ -31,7 +31,8 @@ if  ! kubectl get namespace --no-headers -o name | grep -x "namespace/${NAMESPAC
             \"load-balancer.hetzner.cloud/name\":\"${WORKER_LB_NAME}\", \
             \"load-balancer.hetzner.cloud/location\":\"${WORKER_LB_LOCATION}\", \
             \"load-balancer.hetzner.cloud/algorithm-type\":\"least_connections\", \
-            \"load-balancer.hetzner.cloud/uses-proxyprotocol\":\"false\" \
+            \"load-balancer.hetzner.cloud/uses-proxyprotocol\":\"false\", \
+            \"external-dns.alpha.kubernetes.io/hostname\":\"${WORKER_LB_NAME}\" \
       }"\
       --wait \
       --timeout 5m \
