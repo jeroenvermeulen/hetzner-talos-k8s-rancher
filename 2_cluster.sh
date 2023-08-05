@@ -214,9 +214,11 @@ showProgress "Create Hetzner Cloud secret and import Cloud Controller Manager ma
 NAMESPACE="kube-system"
 if  ! kubectl get -n "${NAMESPACE}" secret --no-headers -o name | grep -x "secret/hcloud"; then
   HCLOUD_TOKEN="$( grep -A1 "name = '${HCLOUD_CONTEXT}'" ~/.config/hcloud/cli.toml | tail -n1 | cut -d\' -f2 )"
-  kubectl -n kube-system  create  secret  generic  hcloud  --from-literal="token=${HCLOUD_TOKEN}"
+  kubectl  -n kube-system  create  secret  generic  hcloud  --from-literal="token=${HCLOUD_TOKEN}"
 fi
 kubectl  apply  -f https://github.com/hetznercloud/hcloud-cloud-controller-manager/releases/latest/download/ccm.yaml
+kubectl  set  env  -n kube-system  --env "HCLOUD_LOAD_BALANCERS_LOCATION=${DEFAULT_LB_LOCATION}"  \
+  deployment/hcloud-cloud-controller-manager
 
 showProgress "Patch nodes to add providerID"
 
