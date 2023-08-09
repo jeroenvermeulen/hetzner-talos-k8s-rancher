@@ -17,14 +17,3 @@ providers:
 tolerations:
   - effect: NoSchedule
     operator: Exists
-ports:
-  web:
-    proxyProtocol:
-      trustedIPs:
-        - "128.140.25.42"
-        - "2a01:4f8:c011:116::1"
-  websecure:
-    proxyProtocol:
-      trustedIPs:
-        - "128.140.25.42"
-        - "2a01:4f8:c011:116::1"

@@ -27,7 +27,7 @@ helm  "${HELM_ACTION}"  traefik  traefik/traefik \
     --values "${DEPLOY_DIR}/traefik-values.yaml" \
     --set "service.spec.loadBalancerIP=${WORKER_LB_IPV4}" \
     --set-json "ports.web.proxyProtocol.trustedIPs=[\"${WORKER_LB_IPV4}\",\"${WORKER_LB_IPV6}\"]" \
-    --set-json "ports.web.forwardedHeaders.trustedIPs=[\"${WORKER_LB_IPV4}\",\"${WORKER_LB_IPV6}\"]" \
+    --set-json "ports.websecure.proxyProtocol.trustedIPs=[\"${WORKER_LB_IPV4}\",\"${WORKER_LB_IPV6}\"]" \
     --set-json "service.annotations={ \
           \"load-balancer.hetzner.cloud/name\":\"${WORKER_LB_NAME}\", \
           \"load-balancer.hetzner.cloud/location\":\"${WORKER_LB_LOCATION}\", \

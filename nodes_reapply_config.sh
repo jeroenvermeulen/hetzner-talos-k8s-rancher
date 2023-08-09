@@ -15,6 +15,10 @@ for NR in $(seq 1 1 "${CONTROL_COUNT}"); do
   showProgress "Apply controller config to ${NODE_NAME}"
   talosctl  apply-config \
     --file "${CONFIG_FILE}" \
+    --mode  no-reboot \
+    --endpoints "${CONTROL_IPS[$((NR-1))]}" \
+    --nodes "${CONTROL_IPS[$((NR-1))]}"
+  talosctl  reboot \
     --endpoints "${CONTROL_IPS[$((NR-1))]}" \
     --nodes "${CONTROL_IPS[$((NR-1))]}"
 done
@@ -25,6 +29,10 @@ for NR in $(seq 1 1 "${WORKER_COUNT}"); do
   showProgress "Apply controller config to ${NODE_NAME}"
   talosctl  apply-config \
     --file "${CONFIG_FILE}" \
+    --mode  no-reboot \
+    --endpoints "${WORKER_IPS[$((NR-1))]}" \
+    --nodes "${WORKER_IPS[$((NR-1))]}"
+  talosctl  reboot \
     --endpoints "${WORKER_IPS[$((NR-1))]}" \
     --nodes "${WORKER_IPS[$((NR-1))]}"
 done
