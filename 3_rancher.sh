@@ -60,14 +60,14 @@ kubectl -n "${NAMESPACE}" get pods
 
 showProgress "Install Rancher"
 
-helm  repo  add  "rancher-${RANCHER_CHART_REPO}"  "https://releases.rancher.com/server-charts/${RANCHER_CHART_REPO}"
-helm  repo  update  "rancher-${RANCHER_CHART_REPO}"
+helm  repo  add  rancher  "https://releases.rancher.com/server-charts/latest"
+helm  repo  update  rancher
 NAMESPACE="cattle-system"
 HELM_ACTION="install"
 if  kubectl get namespace --no-headers -o name | grep -x "namespace/${NAMESPACE}"; then
   HELM_ACTION="upgrade"
 fi
-helm  "${HELM_ACTION}"  rancher rancher-${RANCHER_CHART_REPO}/rancher \
+helm  "${HELM_ACTION}"  rancher  rancher/rancher \
     --namespace "${NAMESPACE}" \
     --create-namespace \
     --set "hostname=${RANCHER_HOSTNAME}" \

@@ -70,9 +70,10 @@ for NR in $(seq 1 1 "${CONTROL_COUNT}"); do
   CONFIG_FILE="${SCRIPT_DIR}/node_${NODE_NAME}.yaml"
   (
     umask 0077
-    talosctl  gen  config  --with-secrets "${TALOS_SECRETS}"  "${TALOS_CONTEXT}"  "https://${CONTROL_LB_IPV4}:6443" \
+    talosctl  gen  config  "${TALOS_CONTEXT}"  "https://${CONTROL_LB_IPV4}:6443" \
+      --with-secrets "${TALOS_SECRETS}" \
       --config-patch @talos-patch.yaml \
-      --config-patch @talos-patch-control.yaml \
+      --config-patch-control-plane @talos-patch-control.yaml \
       --config-patch="[{\"op\":\"replace\", \"path\":\"/machine/network/hostname\", \"value\": \"${NODE_NAME}\"}]" \
       --kubernetes-version "${KUBE_VERSION}" \
       --additional-sans "${CONTROL_LB_IPV4},${CONTROL_LB_NAME}" \
@@ -113,14 +114,15 @@ for NR in $(seq 1 1 "${WORKER_COUNT}"); do
   fi
   (
     umask 0077
-    talosctl  gen  config  --with-secrets "${TALOS_SECRETS}"  "${TALOS_CONTEXT}"  "https://${CONTROL_LB_IPV4}:6443" \
+    talosctl  gen  config  "${TALOS_CONTEXT}"  "https://${CONTROL_LB_IPV4}:6443" \
+      --with-secrets "${TALOS_SECRETS}" \
       --config-patch @talos-patch.yaml \
       --config-patch="[{\"op\":\"replace\", \"path\":\"/machine/network/hostname\", \"value\": \"${NODE_NAME}\"}]" \
+      ${VOLUME_PATCH[@]} \
       --kubernetes-version "${KUBE_VERSION}" \
       --additional-sans "${CONTROL_LB_IPV4},${CONTROL_LB_NAME}" \
       --output-types worker \
       --output "${CONFIG_FILE}" \
-      ${VOLUME_PATCH[@]} \
       --force
   )
   if  hcloud server list --output noheader  --output columns=name | grep "^${NODE_NAME}$"; then
@@ -151,7 +153,8 @@ getNodeIps
 
 showProgress "Generate talosconfig"
 
-talosctl  gen  config  --with-secrets "${TALOS_SECRETS}"  "${TALOS_CONTEXT}"  "https://${CONTROL_LB_IPV4}:6443" \
+talosctl  gen  config  "${TALOS_CONTEXT}"  "https://${CONTROL_LB_IPV4}:6443" \
+  --with-secrets "${TALOS_SECRETS}" \
   --output-types talosconfig  \
   --output "${TALOSCONFIG}"  \
   --force
@@ -186,7 +189,10 @@ OLD_KUBECONFIG="${KUBECONFIG}"
 if [[ "$KUBECONFIG" == *:* ]]; then
   KUBECONFIG="${KUBECONFIG%%:*}"
 fi
-talosctl  kubeconfig  --force  --endpoints "${CONTROL_IPS[0]}"  --nodes "${CONTROL_IPS[0]}"
+talosctl  kubeconfig  \
+  --force  \
+  --endpoints "${CONTROL_IPS[0]}" \
+  --nodes "${CONTROL_IPS[0]}"
 KUBECONFIG="${OLD_KUBECONFIG}"
 
 waitForTcpPort  "${CONTROL_LB_IPV4}"  6443
