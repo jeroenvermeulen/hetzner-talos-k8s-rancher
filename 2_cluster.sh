@@ -185,7 +185,7 @@ fi
 
 showProgress "Update kubeconfig for kubectl"
 
-OLD_KUBECONFIG="${KUBECONFIG}"
+OLD_KUBECONFIG="${KUBECONFIG:=}"
 if [[ "$KUBECONFIG" == *:* ]]; then
   KUBECONFIG="${KUBECONFIG%%:*}"
 fi
