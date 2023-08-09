@@ -13,16 +13,17 @@ if command -v brew > /dev/null; then
 fi
 if command -v apt-get > /dev/null; then
   showProgress "Install packages using APT"
+  DEB_BUILD_ARCH="$( dpkg --print-architecture )"
   sudo  apt-get  update
-  sudo  apt-get  install  --asume-yes  packer  hcloud-cli  jq
+  sudo  apt-get  install  --assume-yes  packer  hcloud-cli  jq
 
   showProgress "Install talosctl from repo"
-  sudo  curl -L "https://github.com/siderolabs/talos/releases/download/${TALOS_VERSION}/talosctl-linux-amd64" \
+  sudo  curl -L "https://github.com/siderolabs/talos/releases/download/${TALOS_VERSION}/talosctl-linux-${DEB_BUILD_ARCH}" \
     --output /usr/local/bin/talosctl
   sudo  chmod  +x  /usr/local/bin/talosctl
 
   showProgress "Install kubectl from repo"
-  sudo  curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
+  sudo  curl -L  "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/${DEB_BUILD_ARCH}/kubectl" \
     --output /usr/local/bin/kubectl
   sudo  chmod  +x  /usr/local/bin/kubectl
 
