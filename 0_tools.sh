@@ -14,7 +14,7 @@ fi
 if command -v apt-get > /dev/null; then
   showProgress "Install packages using APT"
   sudo  apt-get  update
-  sudo  apt-get  install  packer  hcloud-cli  jq
+  sudo  apt-get  install  --asume-yes  packer  hcloud-cli  jq
 
   showProgress "Install talosctl from repo"
   sudo  curl -L "https://github.com/siderolabs/talos/releases/download/${TALOS_VERSION}/talosctl-linux-amd64" \
