@@ -17,6 +17,11 @@ if command -v apt-get > /dev/null; then
   sudo  apt-get  update
   sudo  apt-get  install  --assume-yes  packer  hcloud-cli  jq
 
+  showProgress "Install hcloud CLI from Github"
+  DOWNLOAD_URL="$( curl -s https://api.github.com/repos/hetznercloud/cli/releases/latest | jq -r ".assets[] | select(.name==\"hcloud-linux-${DEB_BUILD_ARCH}.tar.gz\") | .browser_download_url" )"
+  curl -L "${DOWNLOAD_URL}" | tar -zxO hcloud | sudo bash -c 'cat > /usr/local/bin/hcloud'
+  sudo  chmod  +x  /usr/local/bin/hcloud
+
   showProgress "Install talosctl from repo"
   sudo  curl -L "https://github.com/siderolabs/talos/releases/download/${TALOS_VERSION}/talosctl-linux-${DEB_BUILD_ARCH}" \
     --output /usr/local/bin/talosctl
