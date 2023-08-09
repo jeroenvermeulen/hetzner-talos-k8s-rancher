@@ -25,7 +25,7 @@ if [ -z "${TARGET_JSON}" ]; then
       --label-selector "${CONTROL_SELECTOR}"
 fi
 
-for PORT in 6443 50000; do
+for PORT in 6443 50000 50001; do
   SERVICE_JSON=$( hcloud load-balancer describe "${CONTROL_LB_NAME}" --output json \
                   | jq ".services[] | select(.listen_port == ${PORT})" )
   if [ -z "${SERVICE_JSON}" ]; then
