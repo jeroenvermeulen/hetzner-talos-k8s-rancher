@@ -1,3 +1,4 @@
+---
 machine:
   nodeLabels:
     # These are deprecated but make Rancher happy
