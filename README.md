@@ -1,3 +1,5 @@
+![Talos Kubernetes Rancher Hetzner](https://github.com/jeroenvermeulen/hetzner-talos-k8s-rancher/blob/master/logo.png?raw=true)
+
 # Install Kubernetes on Hetzner Cloud using Talos Linux
 
 ## Components
