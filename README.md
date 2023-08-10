@@ -1,4 +1,4 @@
-![Talos Kubernetes Rancher Hetzner](https://github.com/jeroenvermeulen/hetzner-talos-k8s-rancher/blob/master/logo.png?raw=true)
+![Talos Kubernetes Rancher Hetzner](https://raw.githubusercontent.com/jeroenvermeulen/hetzner-talos-k8s-rancher/master/assets/logo.png)
 
 # Scripts to install Kubernetes on Hetzner Cloud using Talos Linux
 
@@ -9,6 +9,7 @@
 - [Rancher](https://www.rancher.com/) enterprise Kubernetes management, dashboard
 - [Traefik](https://traefik.io/traefik/) ingress controller
 - [Cert-Manager](https://cert-manager.io/) manage Let's Encrypt certificates
+- [Mayastor](https://openebs.io/docs/concepts/mayastor) container attached storage (optional)
 
 ## Requirements
 - A local console, for example [iTerm](https://iterm2.com/) or SSH to a Linux shell

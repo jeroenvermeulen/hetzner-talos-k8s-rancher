@@ -14,8 +14,8 @@ IMAGE_ID=$( hcloud image list --selector "${IMAGE_SELECTOR}" --output noheader  
 if [ -z "${IMAGE_ID}" ]; then
   showProgress "Build image using Packer - Don't worry about the red output, it is just stderr."
   HCLOUD_TOKEN="$( grep -A1 "name = '${HCLOUD_CONTEXT}'" ~/.config/hcloud/cli.toml | tail -n1 | cut -d\' -f2 )"
-  packer  init  "${SCRIPT_DIR}/disk_image.pkr.hcl"
-  packer  build  -var "talos_version=${TALOS_VERSION}"  -var "hcloud_token=${HCLOUD_TOKEN}"  "${SCRIPT_DIR}/disk_image.pkr.hcl"
+  packer  init  "${SCRIPT_DIR}/deploy/disk_image.pkr.hcl"
+  packer  build  -var "talos_version=${TALOS_VERSION}"  -var "hcloud_token=${HCLOUD_TOKEN}"  "${SCRIPT_DIR}/deploy/disk_image.pkr.hcl"
 fi
 
 set  +o xtrace

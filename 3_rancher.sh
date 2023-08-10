@@ -34,7 +34,7 @@ helm  "${HELM_ACTION}"  traefik  traefik/traefik \
           \"external-dns.alpha.kubernetes.io/hostname\":\"${WORKER_LB_NAME}\" \
     }"\
     --wait \
-    --timeout 5m \
+    --timeout 20m \
     --debug
 kubectl -n "${NAMESPACE}" get pods
 
@@ -54,7 +54,7 @@ helm  "${HELM_ACTION}"  cert-manager  jetstack/cert-manager \
     --set  installCRDs=true \
     --set  startupapicheck.timeout=5m \
     --wait \
-    --timeout 10m \
+    --timeout 20m \
     --debug
 kubectl -n "${NAMESPACE}" get pods
 
@@ -77,14 +77,10 @@ helm  "${HELM_ACTION}"  rancher  rancher/rancher \
     --set letsEncrypt.ingress.class=traefik \
     --set global.cattle.psp.enable=false \
     --wait \
-    --timeout 10m \
+    --timeout 30m \
     --debug
 
 kubectl -n "${NAMESPACE}" get pods
-
-showProgress "Install Local Path Storage"
-
-kubectl apply -f "${DEPLOY_DIR}/local-path-storage.yaml"
 
 showProgress "Show Rancher URL"
 

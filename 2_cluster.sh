@@ -72,9 +72,9 @@ for (( NR=0; NR<${#CONTROL_NAMES[@]}; NR++ )); do
     umask 0077
     talosctl  gen  config  "${TALOS_CONTEXT}"  "https://${CONTROL_LB_IPV4}:6443" \
       --with-secrets "${TALOS_SECRETS}" \
-      --config-patch @talos-patch.yaml \
-      --config-patch-control-plane @talos-patch-control.yaml \
-      --config-patch="[{\"op\":\"replace\", \"path\":\"/machine/network/hostname\", \"value\": \"${NODE_NAME}\"}]" \
+      --config-patch "@${SCRIPT_DIR}/deploy/talos-patch.yaml" \
+      --config-patch-control-plane "@${SCRIPT_DIR}/deploy/talos-patch-control.yaml" \
+      --config-patch "[{\"op\":\"replace\", \"path\":\"/machine/network/hostname\", \"value\": \"${NODE_NAME}\"}]" \
       --kubernetes-version "${KUBE_VERSION}" \
       --additional-sans "${CONTROL_LB_IPV4},${CONTROL_LB_NAME}" \
       --output-types controlplane \
@@ -105,19 +105,19 @@ for (( NR=0; NR<${#WORKER_NAMES[@]}; NR++ )); do
     if  ! hcloud volume list --output noheader  --output columns=name | grep "^${VOLUME_NAME}$"; then
       hcloud  volume  create \
         --size "${WORKER_DATA_VOLUME}" \
-        --location "${WORKER_LOCATION[$((NR-1))]}" \
+        --location "${WORKER_LOCATION[${NR}]}" \
         --name "${VOLUME_NAME}" \
         --format xfs
     fi
     VOLUME_MOUNT=( --automount  --volume "${VOLUME_NAME}" )
-    VOLUME_PATCH=( --config-patch @talos-patch-data.yaml )
+    VOLUME_PATCH=( --config-patch "@${SCRIPT_DIR}/deploy/talos-patch-data.yaml" )
   fi
   (
     umask 0077
     talosctl  gen  config  "${TALOS_CONTEXT}"  "https://${CONTROL_LB_IPV4}:6443" \
       --with-secrets "${TALOS_SECRETS}" \
-      --config-patch @talos-patch.yaml \
-      --config-patch="[{\"op\":\"replace\", \"path\":\"/machine/network/hostname\", \"value\": \"${NODE_NAME}\"}]" \
+      --config-patch "@${SCRIPT_DIR}/deploy/talos-patch.yaml" \
+      --config-patch "[{\"op\":\"replace\", \"path\":\"/machine/network/hostname\", \"value\": \"${NODE_NAME}\"}]" \
       ${VOLUME_PATCH[@]} \
       --kubernetes-version "${KUBE_VERSION}" \
       --additional-sans "${CONTROL_LB_IPV4},${CONTROL_LB_NAME}" \
@@ -242,6 +242,46 @@ for NODE_NAME in "${NODE_NAMES[@]}"; do
     exit 1;
   fi
 done
+
+showProgress "Install Local Path Storage"
+
+kubectl apply -f "${DEPLOY_DIR}/local-path-storage.yaml"
+
+if [ "${WORKER_DATA_VOLUME}" -gt 0 ]; then
+  NAMESPACE="mayastor"
+  showProgress "Helm install Mayastor"
+  HELM_ACTION="install"
+  if  kubectl get namespace --no-headers -o name | grep -x "namespace/${NAMESPACE}"; then
+    HELM_ACTION="upgrade"
+  else
+    kubectl  apply  --namespace="${NAMESPACE}"  --filename="${SCRIPT_DIR}/deploy/mayastor_pre.yaml"
+  fi
+  helm  repo  add  mayastor  https://openebs.github.io/mayastor-extensions/
+  helm  repo  update  mayastor
+  helm  "${HELM_ACTION}"  mayastor  mayastor/mayastor \
+      --namespace  "${NAMESPACE}" \
+      --create-namespace \
+      --values "${SCRIPT_DIR}/deploy/mayastor-values.yaml" \
+      --wait \
+      --timeout 20m \
+      --debug
+  kubectl  --namespace="${NAMESPACE}"  get  pods
+  for NODE_NAME in "${WORKER_NAMES[@]}"; do
+    showProgress "Create Mayastor diskpool on ${NODE_NAME}"
+    cat <<EOF | kubectl  apply  --namespace="${NAMESPACE}"  --filename=-
+apiVersion: "openebs.io/v1alpha1"
+kind: DiskPool
+metadata:
+  name: ${NODE_NAME//./-}-sdb
+  namespace: ${NAMESPACE}
+spec:
+  node: ${NODE_NAME}
+  disks:
+    - /dev/sdb
+EOF
+  done
+  kubectl  apply  --namespace="${NAMESPACE}"  --filename="${SCRIPT_DIR}/deploy/mayastor_post.yaml"
+fi
 
 showProgress "Show nodes"
 

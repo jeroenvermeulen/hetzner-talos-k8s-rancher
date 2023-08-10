@@ -1,0 +1,7 @@
+---
+io_engine:
+  cpuCount: 1
+etcd:
+  tolerations:
+    - effect: NoSchedule
+      operator: Exists
