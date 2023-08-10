@@ -90,7 +90,7 @@ for (( NR=0; NR<${#CONTROL_NAMES[@]}; NR++ )); do
       --type "$( echo "${CONTROL_TYPE}" | tr '[:upper:]' '[:lower:]' )" \
       --location "${CONTROL_LOCATION[${NR}]}" \
       --label "${CONTROL_SELECTOR}" \
-      --user-data-from-file  "${CONFIG_FILE}"  >/dev/null &
+      --user-data-from-file  "${CONFIG_FILE}" # >/dev/null &   # Enable if you wish to create in parallel
 done
 
 showProgress "Start worker nodes"
@@ -135,8 +135,7 @@ for (( NR=0; NR<${#WORKER_NAMES[@]}; NR++ )); do
       --location "${WORKER_LOCATION[${NR}]}" \
       --label "${WORKER_SELECTOR}" \
       --user-data-from-file  "${CONFIG_FILE}" \
-      ${VOLUME_MOUNT[@]} \
-      >/dev/null &
+      ${VOLUME_MOUNT[@]}  # >/dev/null &   # Enable if you wish to create in parallel
 done
 
 for NODE_NAME in "${NODE_NAMES[@]}"; do
