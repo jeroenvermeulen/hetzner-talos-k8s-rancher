@@ -253,7 +253,7 @@ if [ "${WORKER_DATA_VOLUME}" -gt 0 ]; then
   if  kubectl get namespace --no-headers -o name | grep -x "namespace/${NAMESPACE}"; then
     HELM_ACTION="upgrade"
   else
-    kubectl  apply  --namespace="${NAMESPACE}"  --filename="${SCRIPT_DIR}/deploy/mayastor_pre.yaml"
+    kubectl  apply  --namespace="${NAMESPACE}"  --filename="${SCRIPT_DIR}/deploy/mayastor-pre.yaml"
   fi
   helm  repo  add  mayastor  https://openebs.github.io/mayastor-extensions/
   helm  repo  update  mayastor
@@ -279,7 +279,7 @@ spec:
     - /dev/sdb
 EOF
   done
-  kubectl  apply  --namespace="${NAMESPACE}"  --filename="${SCRIPT_DIR}/deploy/mayastor_post.yaml"
+  kubectl  apply  --namespace="${NAMESPACE}"  --filename="${SCRIPT_DIR}/deploy/mayastor-post.yaml"
 fi
 
 showProgress "Show nodes"
