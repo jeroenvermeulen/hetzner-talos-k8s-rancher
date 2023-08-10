@@ -9,18 +9,12 @@ setContext
 set  -o xtrace
 getNodeIps
 
-for NR in $(seq 1 1 "${CONTROL_COUNT}"); do
-  NODE_NAME="control${NR}.${CLUSTER_NAME}"
-  CONFIG_FILE="${SCRIPT_DIR}/node_${NODE_NAME}.yaml"
+for NODE_IP in "${NODE_IPS[@]}"; do
   showProgress "Upgrading ${NODE_NAME}"
-  talosctl  upgrade  --image="ghcr.io/siderolabs/installer:${TALOS_VERSION}"  --endpoints "${CONTROL_IPS[$((NR-1))]}"  --nodes "${CONTROL_IPS[$((NR-1))]}"
-done
-
-for NR in $(seq 1 1 "${WORKER_COUNT}"); do
-  NODE_NAME="worker${NR}.${CLUSTER_NAME}"
-  CONFIG_FILE="${SCRIPT_DIR}/node_${NODE_NAME}.yaml"
-  showProgress "Upgrading ${NODE_NAME}"
-  talosctl  upgrade  --image="ghcr.io/siderolabs/installer:${TALOS_VERSION}"  --endpoints "${WORKER_IPS[$((NR-1))]}"  --nodes "${WORKER_IPS[$((NR-1))]}"
+  talosctl  upgrade \
+    --image="ghcr.io/siderolabs/installer:${TALOS_VERSION}" \
+    --endpoints "${NODE_IP}" \
+    --nodes "${NODE_IP}"
 done
 
 showNotice "==== Finished $(basename "$0") ===="

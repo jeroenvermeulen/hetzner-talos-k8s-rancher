@@ -14,6 +14,14 @@ function showProgress() {
   )
 }
 
+function showWarning() {
+  (
+    set +o xtrace;
+    IFS=' '
+    printf "\n\e[33m%s\e[0m\n\n" "$*"
+  )
+}
+
 function showError() {
   (
     set +o xtrace;
@@ -49,13 +57,11 @@ function getNodeIps() {
   NODE_IPS=()
   CONTROL_IPS=()
   WORKER_IPS=()
-  for NR in $(seq 1 1 "${CONTROL_COUNT}"); do
-    CONTROL_NAME="control${NR}.${CLUSTER_NAME}"
-    NODE_IPS+=("$( hcloud server ip "${CONTROL_NAME}" )")
-    CONTROL_IPS+=("$( hcloud server ip "${CONTROL_NAME}" )")
+  for NODE_NAME in "${CONTROL_NAMES[@]}"; do
+    NODE_IPS+=("$( hcloud server ip "${NODE_NAME}" )")
+    CONTROL_IPS+=("$( hcloud server ip "${NODE_NAME}" )")
   done
-  for NR in $(seq 1 1 "${WORKER_COUNT}"); do
-    NODE_NAME="worker${NR}.${CLUSTER_NAME}"
+  for NODE_NAME in "${WORKER_NAMES[@]}"; do
     NODE_IPS+=("$( hcloud server ip "${NODE_NAME}" )")
     WORKER_IPS+=("$( hcloud server ip "${NODE_NAME}" )")
   done
@@ -75,7 +81,7 @@ function waitForTcpPort() {
   local _HOST="$1"
   local _PORT="$2"
   showProgress "Waiting for host ${_HOST} to open TCP port ${_PORT}"
-  for TRY in $(seq 100); do
+  for (( TRY=1; TRY<=100; TRY++ )); do
     if nc -z "${_HOST}" "${_PORT}"; then
       break;
     fi
@@ -105,5 +111,18 @@ KUBECTL_CONTEXT="admin@${CLUSTER_NAME}"
 HCLOUD_CONTEXT="${CLUSTER_NAME}"
 CONTROL1_NAME="control1.${CLUSTER_NAME}"
 DEPLOY_DIR="${SCRIPT_DIR}/deploy"
+CONTROL_NAMES=()
+WORKER_NAMES=()
+NODE_NAMES=()
+for (( NR=1; NR<="${CONTROL_COUNT}"; NR++ )); do
+  NODE_NAME="control${NR}.${CLUSTER_NAME}"
+  CONTROL_NAMES+=("${NODE_NAME}")
+  NODE_NAMES+=("${NODE_NAME}")
+done
+for (( NR=1; NR<="${WORKER_COUNT}"; NR++ )); do
+  NODE_NAME="worker${NR}.${CLUSTER_NAME}"
+  WORKER_NAMES+=("${NODE_NAME}")
+  NODE_NAMES+=("${NODE_NAME}")
+done
 export TALOSCONFIG
 export KUBECTL_CONTEXT

@@ -65,8 +65,8 @@ IMAGE_ID=$( hcloud  image list --selector "${IMAGE_SELECTOR}" --output noheader 
 
 showProgress "Start control nodes"
 
-for NR in $(seq 1 1 "${CONTROL_COUNT}"); do
-  NODE_NAME="control${NR}.${CLUSTER_NAME}"
+for (( NR=0; NR<${#CONTROL_NAMES[@]}; NR++ )); do
+  NODE_NAME="${CONTROL_NAMES[${NR}]}"
   CONFIG_FILE="${SCRIPT_DIR}/node_${NODE_NAME}.yaml"
   (
     umask 0077
@@ -87,19 +87,19 @@ for NR in $(seq 1 1 "${CONTROL_COUNT}"); do
   hcloud  server  create \
       --name "${NODE_NAME}" \
       --image "${IMAGE_ID}" \
-      --type "$( echo ${CONTROL_TYPE} | tr '[:upper:]' '[:lower:]' )" \
-      --location "${CONTROL_LOCATION[$((NR-1))]}" \
+      --type "$( echo "${CONTROL_TYPE}" | tr '[:upper:]' '[:lower:]' )" \
+      --location "${CONTROL_LOCATION[${NR}]}" \
       --label "${CONTROL_SELECTOR}" \
       --user-data-from-file  "${CONFIG_FILE}"  >/dev/null &
 done
 
 showProgress "Start worker nodes"
 
-for NR in $(seq 1 1 "${WORKER_COUNT}"); do
-  NODE_NAME="worker${NR}.${CLUSTER_NAME}"
+for (( NR=0; NR<${#WORKER_NAMES[@]}; NR++ )); do
+  NODE_NAME="${WORKER_NAMES[${NR}]}"
   CONFIG_FILE="${SCRIPT_DIR}/node_${NODE_NAME}.yaml"
-  VOLUME_MOUNT=()
-  VOLUME_PATCH=()
+  VOLUME_MOUNT=( '' )
+  VOLUME_PATCH=( '' )
   if [ "${WORKER_DATA_VOLUME}" -gt 0 ]; then
     VOLUME_NAME="${NODE_NAME}-data"
     if  ! hcloud volume list --output noheader  --output columns=name | grep "^${VOLUME_NAME}$"; then
@@ -132,21 +132,22 @@ for NR in $(seq 1 1 "${WORKER_COUNT}"); do
       --name "${NODE_NAME}" \
       --image "${IMAGE_ID}" \
       --type "$( echo ${WORKER_TYPE} | tr '[:upper:]' '[:lower:]' )" \
-      --location "${WORKER_LOCATION[$((NR-1))]}" \
+      --location "${WORKER_LOCATION[${NR}]}" \
       --label "${WORKER_SELECTOR}" \
       --user-data-from-file  "${CONFIG_FILE}" \
       ${VOLUME_MOUNT[@]} \
       >/dev/null &
 done
 
-showProgress "Wait till first control node is running"
-
-for TRY in $(seq 100); do
-  hcloud server list
-  if  hcloud server list --output noheader  --output columns=name,status | grep -E "^${CONTROL1_NAME}\s+running$"; then
-    break
-  fi
-  sleep 10
+for NODE_NAME in "${NODE_NAMES[@]}"; do
+  showProgress "Wait till ${NODE_NAME} is running"
+  for (( TRY=0; TRY<100; TRY++ )); do
+    if  hcloud server list --output noheader  --output columns=name,status | grep -E "^${NODE_NAME}\s+running$"; then
+      break
+    fi
+    hcloud server list
+    sleep 10
+  done
 done
 
 getNodeIps
@@ -159,7 +160,7 @@ talosctl  gen  config  "${TALOS_CONTEXT}"  "https://${CONTROL_LB_IPV4}:6443" \
   --output "${TALOSCONFIG}"  \
   --force
 talosctl  config  endpoint  "${CONTROL_LB_IPV4}"
-IFS=' '  talosctl  config  nodes  ${CONTROL_LB_IPV4}
+talosctl  config  nodes     "${CONTROL_LB_IPV4}"
 (
   MERGE_TALOSCONFIG="${TALOSCONFIG}"
   # Unset TALOSCONFIG in subshell to run these commands against the default config
@@ -174,13 +175,15 @@ IFS=' '  talosctl  config  nodes  ${CONTROL_LB_IPV4}
   talosctl  config  merge  "${MERGE_TALOSCONFIG}"
 )
 
-waitForTcpPort  "${CONTROL_IPS[0]}"  50000
+for NODE_IP in "${NODE_IPS[@]}"; do
+  waitForTcpPort  "${NODE_IP}"  50000
+done
+waitForTcpPort  "${CONTROL_LB_IPV4}"  50000
 
 showProgress "Bootstrap Talos cluster"
 
-if ! talosctl  etcd  status  --endpoints "${CONTROL_IPS[0]}"  --nodes "${CONTROL_IPS[0]}"  2>/dev/null \
-   | grep "${CONTROL_IPS[0]}"; then
-  talosctl  bootstrap  --endpoints "${CONTROL_IPS[0]}"  --nodes "${CONTROL_IPS[0]}"
+if ! talosctl  etcd  status  --nodes "${CONTROL_IPS[0]}"  2>/dev/null; then
+  talosctl  bootstrap  --nodes "${CONTROL_IPS[0]}"
 fi
 
 showProgress "Update kubeconfig for kubectl"
@@ -189,17 +192,17 @@ OLD_KUBECONFIG="${KUBECONFIG:=}"
 if [[ "$KUBECONFIG" == *:* ]]; then
   KUBECONFIG="${KUBECONFIG%%:*}"
 fi
-talosctl  kubeconfig  \
-  --force  \
-  --endpoints "${CONTROL_IPS[0]}" \
-  --nodes "${CONTROL_IPS[0]}"
+talosctl  kubeconfig  --force
 KUBECONFIG="${OLD_KUBECONFIG}"
 
+for CONTROL_IP in "${CONTROL_IPS[@]}"; do
+  waitForTcpPort  "${CONTROL_IP}"  6443
+done
 waitForTcpPort  "${CONTROL_LB_IPV4}"  6443
 
 showProgress "Wait for first control node to become Ready"
 
-for TRY in $(seq 100); do
+for (( TRY=0; TRY<100; TRY++ )); do
   kubectl get nodes || true
   if  kubectl get nodes --no-headers "${CONTROL1_NAME}" | grep -E "\sReady\s"; then
     break
@@ -228,10 +231,8 @@ kubectl  set  env  -n kube-system  --env "HCLOUD_LOAD_BALANCERS_LOCATION=${DEFAU
 
 showProgress "Patch nodes to add providerID"
 
-while IFS= read -r -u3 LINE
-do
-  NODE_NAME="$( echo "${LINE}" | awk '{print $1}' )"
-  NODE_ID="hcloud://$( echo "${LINE}" | awk '{print $2}' )"
+for NODE_NAME in "${NODE_NAMES[@]}"; do
+  NODE_ID="hcloud://$( hcloud  server  describe  "${NODE_NAME}" -o json  |  jq  -r  '.id' )"
   if [ "<none>" == "$( kubectl get node "${NODE_NAME}" -o custom-columns=ID:.spec.providerID --no-headers )" ]; then
     kubectl  patch  node  "${NODE_NAME}"  --patch="{ \"spec\": {\"providerID\":\"${NODE_ID}\"} }"
   fi
@@ -240,12 +241,12 @@ do
     showError "The providerID of '${NODE_NAME}' in K8S is '${PROVIDER_ID}' while it is '${NODE_ID}' at Hetzner. It is not possible to change this."
     exit 1;
   fi
-done 3<<< "$( hcloud server list --output noheader  --output columns=name,id )"
+done
 
 showProgress "Show nodes"
 
 kubectl  get  nodes  -o wide
 
-showNotice "Make sure the DNS of '${RANCHER_HOSTNAME}' resolves to the load balancer IP '${WORKER_LB_IPV4}'"
+showWarning "Make sure the DNS of '${RANCHER_HOSTNAME}' resolves to the load balancer IP '${WORKER_LB_IPV4}'"
 
 showNotice "==== Finished $(basename "$0") ===="

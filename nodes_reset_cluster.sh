@@ -9,18 +9,15 @@ setContext
 set  -o xtrace
 getNodeIps
 
-for NR in $(seq 1 1 "${CONTROL_COUNT}"); do
-  NODE_NAME="control${NR}.${CLUSTER_NAME}"
-  showProgress "Reset node ${NODE_NAME}"
-  talosctl  reset  --graceful=false  --system-labels-to-wipe STATE,EPHEMERAL  --reboot  --timeout 20s \
-                   --endpoints "${CONTROL_IPS[$((NR-1))]}"  --nodes "${CONTROL_IPS[$((NR-1))]}" || true
-done
-
-for NR in $(seq 1 1 "${WORKER_COUNT}"); do
-  NODE_NAME="worker${NR}.${CLUSTER_NAME}"
-  showProgress "Reset node ${NODE_NAME}"
-  talosctl  reset  --graceful=false  --system-labels-to-wipe STATE,EPHEMERAL  --reboot  --timeout 20s \
-                   --endpoints "${WORKER_IPS[$((NR-1))]}"  --nodes "${WORKER_IPS[$((NR-1))]}" || true
+for NODE_IP in "${NODE_IPS[@]}"; do
+  showProgress "Reset node ${NODE_IP}"
+  talosctl  reset \
+    --graceful=false \
+    --system-labels-to-wipe STATE,EPHEMERAL \
+    --reboot \
+    --timeout 20s \
+    --endpoints "${NODE_IP}" \
+    --nodes "${NODE_IP}" || true
 done
 
 showNotice "Next steps:
