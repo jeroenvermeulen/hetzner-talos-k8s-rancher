@@ -13,7 +13,7 @@
 - Either
   - macOS with [Homebrew](https://brew.sh/),
   - A Debian Linux variant like Ubuntu or
-  - Install tools checked in [0_tools.sh](0_tools.sh) manually
+  - Install tools checked on the bottom of [0_tools.sh](0_tools.sh) manually
 - An [Hetzner account](https://accounts.hetzner.com/signUp)
 - In the Hetzner Cloud Console create a [Project](https://console.hetzner.cloud/projects)
 - In the Project create an API token using **Security** (left sidebar) => **API tokens**
