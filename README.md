@@ -3,11 +3,11 @@
 # Scripts to install Kubernetes on Hetzner Cloud using Talos Linux
 
 ## Components
-- [Hetzner Cloud](https://www.hetzner.com/cloud) hosting
+- [Hetzner Cloud](https://www.hetzner.com/cloud) cloud hosting, loadbalancers
 - [Talos Linux](https://www.talos.dev/) secure, immutable, and minimal
 - [Kubernetes](https://kubernetes.io/) container orchestrator
 - [Rancher](https://www.rancher.com/) enterprise Kubernetes management, dashboard
-- [Traefik](https://traefik.io/traefik/) load balancer
+- [Traefik](https://traefik.io/traefik/) ingress controller
 - [Cert-Manager](https://cert-manager.io/) manage Let's Encrypt certificates
 
 ## Requirements
