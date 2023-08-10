@@ -10,7 +10,7 @@ packer {
 
 variable "talos_version" {
   type    = string
-  default = "v1.4.6"
+  default = "v1.4.7"
 }
 
 variable "hcloud_token" {
@@ -29,7 +29,7 @@ source "hcloud" "talos" {
   server_type  = "cx11"
   ssh_username = "root"
 
-  snapshot_name = "talos system disk ${var.talos_version}"
+  snapshot_name = "Talos ${var.talos_version} system disk"
   snapshot_labels = {
     type    = "infra",
     os      = "talos",
@@ -42,9 +42,14 @@ build {
 
   provisioner "shell" {
     inline = [
-      "apt-get install -y wget",
-      "wget -O /tmp/talos.raw.xz ${local.image}",
-      "xz -d -c /tmp/talos.raw.xz | dd of=/dev/sda && sync",
+      "echo '==== Installing wget and xz ===='",
+      "DEBIAN_FRONTEND=noninteractive  apt-get  install  --assume-yes  --no-install-recommends  wget  xz-utils",
+      "echo '==== Downloading Talos disk image from Github ===='",
+      "wget  --progress=dot:mega  --output-document='/tmp/talos.raw.xz'  '${local.image}'",
+      "echo '==== Decompress the disk image and apply it to /dev/sda ===='",
+      "xz  --decompress  --to-stdout  '/tmp/talos.raw.xz'  |  dd  of=/dev/sda",
+      "sync",
     ]
+    timeout = "30m"
   }
 }
