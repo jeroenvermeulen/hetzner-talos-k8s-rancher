@@ -12,7 +12,7 @@
 
 ## Requirements
 - A local console, for example [iTerm](https://iterm2.com/) or SSH to a Linux shell
-- Either
+- Either:
   - macOS with [Homebrew](https://brew.sh/),
   - A Debian Linux variant like Ubuntu or
   - Install tools checked on the bottom of [0_tools.sh](0_tools.sh) manually
