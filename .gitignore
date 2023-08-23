@@ -2,5 +2,6 @@
 *~
 /secrets.*.yaml
 /talosconfig.*.yaml
+/kubeconfig.*.yaml
 /CONFIG.sh
 /node_*.yaml

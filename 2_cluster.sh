@@ -192,6 +192,7 @@ if [[ "$KUBECONFIG" == *:* ]]; then
   KUBECONFIG="${KUBECONFIG%%:*}"
 fi
 talosctl  kubeconfig  --force
+talosctl  kubeconfig  --force  "${KUBECONFIG_SINGLE}"
 KUBECONFIG="${OLD_KUBECONFIG}"
 
 for CONTROL_IP in "${CONTROL_IPS[@]}"; do

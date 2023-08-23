@@ -31,10 +31,7 @@ function showError() {
 }
 
 function onError() {
-  (
-    set +o xtrace;
-    showError "ERROR Occurred" >&2
-  )
+  showError "ERROR Occurred" >&2
 }
 
 function setContext() {
@@ -57,13 +54,14 @@ function getNodeIps() {
   NODE_IPS=()
   CONTROL_IPS=()
   WORKER_IPS=()
-  for NODE_NAME in "${CONTROL_NAMES[@]}"; do
-    NODE_IPS+=("$( hcloud server ip "${NODE_NAME}" )")
-    CONTROL_IPS+=("$( hcloud server ip "${NODE_NAME}" )")
+  local _NODE_NAME
+  for _NODE_NAME in "${CONTROL_NAMES[@]}"; do
+    NODE_IPS+=("$( hcloud server ip "${_NODE_NAME}" )")
+    CONTROL_IPS+=("$( hcloud server ip "${_NODE_NAME}" )")
   done
-  for NODE_NAME in "${WORKER_NAMES[@]}"; do
-    NODE_IPS+=("$( hcloud server ip "${NODE_NAME}" )")
-    WORKER_IPS+=("$( hcloud server ip "${NODE_NAME}" )")
+  for _NODE_NAME in "${WORKER_NAMES[@]}"; do
+    NODE_IPS+=("$( hcloud server ip "${_NODE_NAME}" )")
+    WORKER_IPS+=("$( hcloud server ip "${_NODE_NAME}" )")
   done
   NODE_IPS_COMMA="$( IFS=','; echo "${NODE_IPS[*]}" )"
   CONTROL_IPS_COMMA="$( IFS=','; echo "${CONTROL_IPS[*]}" )"
@@ -91,13 +89,13 @@ function waitForTcpPort() {
 
 trap 'set +o xtrace; onError' ERR SIGINT SIGTERM
 
-SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-cd "${SCRIPT_DIR}" || exit
-
-if [ ! -f "CONFIG.sh" ]; then
+if [ -z "${SCRIPT_DIR+x}" ] || [ -z "${SCRIPT_DIR}" ]; then
+  showError "Environment variable 'SCRIPT_DIR' is missing or empty."
+fi
+if [ ! -f "${SCRIPT_DIR}/CONFIG.sh" ]; then
   showError "File 'CONFIG.sh' is not found. Please copy 'CONFIG.sh.example' and check values."
 fi
-source CONFIG.sh
+source "${SCRIPT_DIR}/CONFIG.sh"
 
 IMAGE_SELECTOR="version=${TALOS_VERSION},os=talos"
 CONTROL_SELECTOR="type=controlplane,cluster=${CLUSTER_NAME}"
@@ -107,6 +105,7 @@ WORKER_LB_NAME="workers.${CLUSTER_NAME}"
 TALOS_CONTEXT="${CLUSTER_NAME}"
 TALOS_SECRETS="${SCRIPT_DIR}/secrets.${CLUSTER_NAME}.yaml"
 TALOSCONFIG="${SCRIPT_DIR}/talosconfig.${CLUSTER_NAME}.yaml"
+KUBECONFIG_SINGLE="${SCRIPT_DIR}/kubeconfig.${CLUSTER_NAME}.yaml"
 KUBECTL_CONTEXT="admin@${CLUSTER_NAME}"
 HCLOUD_CONTEXT="${CLUSTER_NAME}"
 CONTROL1_NAME="control1.${CLUSTER_NAME}"
@@ -124,5 +123,6 @@ for (( NR=1; NR<="${WORKER_COUNT}"; NR++ )); do
   WORKER_NAMES+=("${NODE_NAME}")
   NODE_NAMES+=("${NODE_NAME}")
 done
+unset NODE_NAME
 export TALOSCONFIG
 export KUBECTL_CONTEXT

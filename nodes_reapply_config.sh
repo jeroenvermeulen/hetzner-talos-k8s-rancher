@@ -15,11 +15,11 @@ for NODE_NAME in "${NODE_NAMES[@]}"; do
   talosctl  apply-config \
     --file "${CONFIG_FILE}" \
     --mode  no-reboot \
-    --endpoints "${CONTROL_IPS[$((NR-1))]}" \
-    --nodes "${CONTROL_IPS[$((NR-1))]}"
+    --endpoints "${CONTROL_LB_IPV4}" \
+    --nodes "${NODE_NAME}"
   talosctl  reboot \
-    --endpoints "${CONTROL_IPS[$((NR-1))]}" \
-    --nodes "${CONTROL_IPS[$((NR-1))]}"
+    --endpoints "${CONTROL_LB_IPV4}" \
+    --nodes "${NODE_NAME}"
 done
 
 showNotice "==== Finished $(basename "$0") ===="

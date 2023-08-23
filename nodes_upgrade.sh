@@ -10,7 +10,7 @@ set  -o xtrace
 getNodeIps
 
 for NODE_IP in "${NODE_IPS[@]}"; do
-  showProgress "Upgrading ${NODE_NAME}"
+  showProgress "Upgrading ${NODE_IP}"
   talosctl  upgrade \
     --image="ghcr.io/siderolabs/installer:${TALOS_VERSION}" \
     --endpoints "${NODE_IP}" \
