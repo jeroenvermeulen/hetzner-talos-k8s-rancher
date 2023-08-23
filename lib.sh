@@ -91,9 +91,11 @@ trap 'set +o xtrace; onError' ERR SIGINT SIGTERM
 
 if [ -z "${SCRIPT_DIR+x}" ] || [ -z "${SCRIPT_DIR}" ]; then
   showError "Environment variable 'SCRIPT_DIR' is missing or empty."
+  exit 1
 fi
 if [ ! -f "${SCRIPT_DIR}/CONFIG.sh" ]; then
   showError "File 'CONFIG.sh' is not found. Please copy 'CONFIG.sh.example' and check values."
+  exit 1
 fi
 source "${SCRIPT_DIR}/CONFIG.sh"
 
