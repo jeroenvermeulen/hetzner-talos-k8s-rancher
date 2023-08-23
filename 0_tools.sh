@@ -44,11 +44,16 @@ if command -v apt-get > /dev/null; then
   chmod  +x  /tmp/get-helm
   sudo  /tmp/get-helm
 
+  # Build is not available for Linux on Arm
   showProgress "Install kubectl-mayastor from repo"
   curl -L  "https://github.com/openebs/mayastor-control-plane/releases/latest/download/kubectl-mayastor-x86_64-linux-musl.zip" \
     --output /tmp/kubectl-mayastor.zip
   unzip  -o  -d /tmp  /tmp/kubectl-mayastor.zip
   sudo  install  -m 0755  /tmp/kubectl-mayastor  /usr/local/bin/kubectl-mayastor
+
+  if [ "${DEB_BUILD_ARCH}" != "amd64" ]; then
+    sudo apt-get  install  --assume-yes  qemu-user
+  fi
 fi
 
 showProgress "Show versions so we know the tools can be executed"
@@ -58,6 +63,10 @@ jq  --version
 talosctl  version  --client
 kubectl  version  --client
 helm  version
-kubectl  mayastor  --version
+if [ "${DEB_BUILD_ARCH}" != "amd64" ]; then
+  qemu-x86_64  /usr/local/bin/kubectl-mayastor  --version
+else
+  kubectl  mayastor  --version
+fi
 
 showNotice "==== Finished $(basename "$0") ===="
