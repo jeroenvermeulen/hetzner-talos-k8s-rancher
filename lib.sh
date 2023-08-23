@@ -36,8 +36,8 @@ function onError() {
 
 function setContext() {
   showProgress "Setting context for hcloud (Hetzner Cloud CLI)"
-  if ! hcloud context list --output noheader --output columns=name | grep -Eq "(^|\s)${HCLOUD_CONTEXT}$"; then
-    hcloud context create "${HCLOUD_CONTEXT}"
+  if ! hcloud context list --output noheader --output columns=name | grep -Eq "\b${HCLOUD_CONTEXT}\b"; then
+    hcloud context create "${HCLOUD_CONTEXT}" || true
   fi
   hcloud  context  use  "${HCLOUD_CONTEXT}"
   showProgress "Setting context for talosctl"
@@ -102,6 +102,8 @@ CONTROL_SELECTOR="type=controlplane,cluster=${CLUSTER_NAME}"
 WORKER_SELECTOR="type=worker,cluster=${CLUSTER_NAME}"
 CONTROL_LB_NAME="control.${CLUSTER_NAME}"
 WORKER_LB_NAME="workers.${CLUSTER_NAME}"
+CONTROL_TYPE="$( echo "${CONTROL_TYPE}" | tr '[:upper:]' '[:lower:]' )"
+WORKER_TYPE="$( echo "${WORKER_TYPE}" | tr '[:upper:]' '[:lower:]' )"
 TALOS_CONTEXT="${CLUSTER_NAME}"
 TALOS_SECRETS="${SCRIPT_DIR}/secrets.${CLUSTER_NAME}.yaml"
 TALOSCONFIG="${SCRIPT_DIR}/talosconfig.${CLUSTER_NAME}.yaml"

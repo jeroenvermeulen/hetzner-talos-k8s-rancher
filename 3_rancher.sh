@@ -50,7 +50,6 @@ fi
 helm  "${HELM_ACTION}"  cert-manager  jetstack/cert-manager \
     --namespace  "${NAMESPACE}" \
     --create-namespace \
-    --version  v1.12.3 \
     --set  installCRDs=true \
     --set  startupapicheck.timeout=5m \
     --wait \

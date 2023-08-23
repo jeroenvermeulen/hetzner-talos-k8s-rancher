@@ -17,6 +17,9 @@ for NODE_NAME in "${NODE_NAMES[@]}"; do
     --mode  no-reboot \
     --endpoints "${CONTROL_LB_IPV4}" \
     --nodes "${NODE_NAME}"
+  talosctl  reboot \
+    --endpoints "${CONTROL_LB_IPV4}" \
+    --nodes "${NODE_NAME}"
 done
 
 showNotice "==== Finished $(basename "$0") ===="

@@ -74,7 +74,20 @@ for (( NR=0; NR<${#CONTROL_NAMES[@]}; NR++ )); do
       --with-secrets "${TALOS_SECRETS}" \
       --config-patch "@${SCRIPT_DIR}/deploy/talos-patch.yaml" \
       --config-patch-control-plane "@${SCRIPT_DIR}/deploy/talos-patch-control.yaml" \
-      --config-patch "[{\"op\":\"replace\", \"path\":\"/machine/network/hostname\", \"value\": \"${NODE_NAME}\"}]" \
+      --config-patch "[ {
+                          \"op\": \"replace\",
+                          \"path\": \"/machine/network/hostname\",
+                          \"value\": \"${NODE_NAME}\"
+                        },
+                        {
+                          \"op\": \"add\",
+                          \"path\": \"/machine/nodeLabels\",
+                          \"value\": {
+                                       \"node.kubernetes.io/instance-type\": \"${CONTROL_TYPE}\",
+                                       \"topology.kubernetes.io/zone\": \"${CONTROL_LOCATION[${NR}]\"}\"
+                                     }
+                        }
+                      ]" \
       --kubernetes-version "${KUBE_VERSION}" \
       --additional-sans "${CONTROL_LB_IPV4},${CONTROL_LB_NAME}" \
       --output-types controlplane \
@@ -87,7 +100,7 @@ for (( NR=0; NR<${#CONTROL_NAMES[@]}; NR++ )); do
   hcloud  server  create \
       --name "${NODE_NAME}" \
       --image "${IMAGE_ID}" \
-      --type "$( echo "${CONTROL_TYPE}" | tr '[:upper:]' '[:lower:]' )" \
+      --type "${CONTROL_TYPE}" \
       --location "${CONTROL_LOCATION[${NR}]}" \
       --label "${CONTROL_SELECTOR}" \
       --user-data-from-file  "${CONFIG_FILE}" # >/dev/null &   # Enable if you wish to create in parallel
@@ -117,7 +130,20 @@ for (( NR=0; NR<${#WORKER_NAMES[@]}; NR++ )); do
     talosctl  gen  config  "${TALOS_CONTEXT}"  "https://${CONTROL_LB_IPV4}:6443" \
       --with-secrets "${TALOS_SECRETS}" \
       --config-patch "@${SCRIPT_DIR}/deploy/talos-patch.yaml" \
-      --config-patch "[{\"op\":\"replace\", \"path\":\"/machine/network/hostname\", \"value\": \"${NODE_NAME}\"}]" \
+      --config-patch "[ {
+                          \"op\": \"replace\",
+                          \"path\": \"/machine/network/hostname\",
+                          \"value\": \"${NODE_NAME}\"
+                        },
+                        {
+                          \"op\": \"add\",
+                          \"path\": \"/machine/nodeLabels\",
+                          \"value\": {
+                                       \"node.kubernetes.io/instance-type\": \"${WORKER_TYPE}\",
+                                       \"topology.kubernetes.io/zone\": \"${WORKER_LOCATION[${NR}]\"}\"
+                                     }
+                        }
+                      ]" \
       ${VOLUME_PATCH[@]} \
       --kubernetes-version "${KUBE_VERSION}" \
       --additional-sans "${CONTROL_LB_IPV4},${CONTROL_LB_NAME}" \
@@ -131,7 +157,7 @@ for (( NR=0; NR<${#WORKER_NAMES[@]}; NR++ )); do
   hcloud  server  create \
       --name "${NODE_NAME}" \
       --image "${IMAGE_ID}" \
-      --type "$( echo ${WORKER_TYPE} | tr '[:upper:]' '[:lower:]' )" \
+      --type "${WORKER_TYPE}" \
       --location "${WORKER_LOCATION[${NR}]}" \
       --label "${WORKER_SELECTOR}" \
       --user-data-from-file  "${CONFIG_FILE}" \
@@ -212,11 +238,12 @@ done
 
 showProgress "Wait for cluster to become healthy"
 
-talosctl  health \
-  --nodes "${CONTROL_IPS[0]}" \
-  --control-plane-nodes "${CONTROL_IPS_COMMA}" \
-  --worker-nodes "${WORKER_IPS_COMMA}" \
-  --wait-timeout 60m
+talosctl  health
+#talosctl  health \
+#  --nodes "${CONTROL_IPS[0]}" \
+#  --control-plane-nodes "${CONTROL_IPS_COMMA}" \
+#  --worker-nodes "${WORKER_IPS_COMMA}" \
+#  --wait-timeout 60m
 
 showProgress "Create Hetzner Cloud secret and import Cloud Controller Manager manifest"
 
@@ -248,8 +275,10 @@ showProgress "Install Local Path Storage"
 kubectl apply -f "${DEPLOY_DIR}/local-path-storage.yaml"
 
 if [ "${WORKER_DATA_VOLUME}" -gt 0 ]; then
-  NAMESPACE="mayastor"
+
   showProgress "Helm install Mayastor"
+
+  NAMESPACE="mayastor"
   HELM_ACTION="install"
   if  kubectl get namespace --no-headers -o name | grep -x "namespace/${NAMESPACE}"; then
     HELM_ACTION="upgrade"

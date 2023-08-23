@@ -1,7 +1,8 @@
 ---
 io_engine:
-  cpuCount: 1
+  cpuCount: 2
 etcd:
+  replicaCount: 5
   tolerations:
     - effect: NoSchedule
       operator: Exists
