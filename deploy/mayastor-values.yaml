@@ -1,6 +1,6 @@
 ---
 io_engine:
-  cpuCount: 2
+  cpuCount: 1
 etcd:
   replicaCount: 5
   tolerations:
