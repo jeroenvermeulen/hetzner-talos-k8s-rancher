@@ -5,9 +5,11 @@ SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source  "${SCRIPT_DIR}/lib.sh"
 showNotice "==== Executing $(basename "$0") ===="
 
-set  -o xtrace
-
-if command -v brew > /dev/null; then
+if [ $( uname -s ) == "Darwin" ]; then
+  if ! command -v brew > /dev/null; then
+    showError "Homebrew not found. Please install using https://brew.sh/"
+    exit 1
+  fi
   showProgress "Install packages using Homebrew"
   brew  install  packer  hcloud  jq  siderolabs/talos/talosctl  kubernetes-cli  helm
 
@@ -16,8 +18,7 @@ if command -v brew > /dev/null; then
     --output /tmp/kubectl-mayastor.zip
   unzip  -o  -d /tmp  /tmp/kubectl-mayastor.zip
   sudo  install  -m 0755  /tmp/kubectl-mayastor  /usr/local/bin/kubectl-mayastor
-fi
-if command -v apt-get > /dev/null; then
+elif [ $( uname -s ) == "Linux" ] && command -v apt-get > /dev/null; then
   showProgress "Install packages using APT"
   DEB_BUILD_ARCH="$( dpkg --print-architecture )"
   sudo  apt-get  update
@@ -54,16 +55,25 @@ if command -v apt-get > /dev/null; then
   if [ "${DEB_BUILD_ARCH}" != "amd64" ]; then
     sudo apt-get  install  --assume-yes  qemu-user
   fi
+else
+  showError "Unrecognised system please install the tools tested on the bottom of $(basename "${BASH_SOURCE[0]}") yourself."
+  exit 1
 fi
 
-showProgress "Show versions so we know the tools can be executed"
+showProgress "Version of 'packer':"
 packer  version
+showProgress "Version of 'hcloud':"
 hcloud  version
+showProgress "Version of 'jq':"
 jq  --version
+showProgress "Version of 'talosctl':"
 talosctl  version  --client
+showProgress "Version of 'kubectl':"
 kubectl  version  --client
+showProgress "Version of 'helm':"
 helm  version
-if [ "$( uname -m )" != "x86_64" ]; then
+showProgress "Version of 'kubectl-mayastor':"
+if [ $( uname -s ) == "Linux" ] && [ "$( uname -m )" != "x86_64" ]; then
   qemu-x86_64  /usr/local/bin/kubectl-mayastor  --version
 else
   kubectl  mayastor  --version

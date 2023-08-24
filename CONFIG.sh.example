@@ -15,4 +15,4 @@ WORKER_COUNT=2                                  # Number of worker nodes
 WORKER_LOCATION=(fsn1 fsn1 fsn1)                # Needs as many entries as WORKER_COUNT
 WORKER_TYPE="CX31"                              # https://docs.hetzner.com/cloud/servers/overview/
 WORKER_DATA_VOLUME=0                            # GB, set to 0 to skip creating data volume for Mayastor, 
-                                                # total CPU cores in worker nodes needs to be 6 or more to use this.
+                                                # Worker nodes need to have 3 or more CPU cores to use this.
