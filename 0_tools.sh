@@ -63,7 +63,7 @@ jq  --version
 talosctl  version  --client
 kubectl  version  --client
 helm  version
-if [ "${DEB_BUILD_ARCH}" != "amd64" ]; then
+if [ "$( uname -m )" != "x86_64" ]; then
   qemu-x86_64  /usr/local/bin/kubectl-mayastor  --version
 else
   kubectl  mayastor  --version
