@@ -14,7 +14,7 @@ for NODE_NAME in "${NODE_NAMES[@]}"; do
   showProgress "Apply config to ${NODE_NAME}"
   talosctl  apply-config \
     --file "${CONFIG_FILE}" \
-    --mode  no-reboot \
+    --mode  staged \
     --endpoints "${CONTROL_LB_IPV4}" \
     --nodes "${NODE_NAME}"
   talosctl  reboot \

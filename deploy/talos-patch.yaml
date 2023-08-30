@@ -12,6 +12,10 @@ machine:
           - bind
           - rshared
           - rw
+  sysctls:
+    vm.max_map_count: 262144
+    vm.overcommit_memory: 1
+    vm.swappiness: 1
   install:
     extensions:
       - image: ghcr.io/siderolabs/iscsi-tools:v0.1.4
