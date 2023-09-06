@@ -17,7 +17,7 @@ helm  repo  add  traefik https://traefik.github.io/charts
 helm  repo  update  traefik
 NAMESPACE="traefik"
 HELM_ACTION="install"
-if  kubectl get namespace --no-headers -o name | grep -x "namespace/${NAMESPACE}"; then
+if  helm  get  manifest  --namespace "${NAMESPACE}"  traefik  &>/dev/null; then
   HELM_ACTION="upgrade"
 fi
 # https://pkg.go.dev/github.com/hetznercloud/hcloud-cloud-controller-manager/internal/annotation#Name
@@ -44,7 +44,7 @@ helm  repo  add  jetstack  https://charts.jetstack.io
 helm  repo  update  jetstack
 NAMESPACE="cert-manager"
 HELM_ACTION="install"
-if  kubectl get namespace --no-headers -o name | grep -x "namespace/${NAMESPACE}"; then
+if  helm  get  manifest  --namespace "${NAMESPACE}"  cert-manager  &>/dev/null; then
   HELM_ACTION="upgrade"
 fi
 helm  "${HELM_ACTION}"  cert-manager  jetstack/cert-manager \
@@ -67,7 +67,7 @@ VERSION=( '' )
 if [ "${RANCHER_VERSION}" != "latest" ]; then
   VERSION=( --version "${RANCHER_VERSION}" )
 fi
-if  kubectl get namespace --no-headers -o name | grep -x "namespace/${NAMESPACE}"; then
+if  helm  get  manifest  --namespace "${NAMESPACE}"  rancher  &>/dev/null; then
   HELM_ACTION="upgrade"
 fi
 helm  "${HELM_ACTION}"  rancher  rancher/rancher \

@@ -300,7 +300,7 @@ if [ "${WORKER_DATA_VOLUME}" -gt 0 ]; then
   for NODE_NAME in "${WORKER_NAMES[@]}"; do
     showProgress "Create Mayastor diskpool on ${NODE_NAME}"
     cat <<EOF | kubectl  apply  --namespace="${NAMESPACE}"  --filename=-
-apiVersion: "openebs.io/v1alpha1"
+apiVersion: "openebs.io/v1beta1"
 kind: DiskPool
 metadata:
   name: ${NODE_NAME//./-}-sdb
