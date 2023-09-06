@@ -13,10 +13,12 @@ machine:
           - rshared
           - rw
   sysctls:
+    # https://www.talos.dev/v1.5/kubernetes-guides/configuration/storage/
+    vm.nr_hugepages: "1024"
     # https://github.com/siderolabs/talos/issues/4654#issuecomment-1025125034
-    vm.max_map_count: 262144
-    vm.overcommit_memory: 1
-    vm.swappiness: 1
+    vm.max_map_count: "262144"
+    vm.overcommit_memory: "1"
+    vm.swappiness: "1"
   install:
     extensions:
       - image: ghcr.io/siderolabs/iscsi-tools:v0.1.4

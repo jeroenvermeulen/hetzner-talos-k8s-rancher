@@ -3,5 +3,3 @@ machine:
   nodeLabels:
     openebs.io/data-plane: true
     openebs.io/engine: mayastor
-  sysctls:
-    vm.nr_hugepages: "1024"
