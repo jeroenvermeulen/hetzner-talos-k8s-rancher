@@ -9,12 +9,11 @@ else
   SCRIPT_DIR=${0:a:h}
 fi
 source  "${SCRIPT_DIR}/lib.sh"
-if [ ! -f "${KUBECONFIG_SINGLE}" ]; then
-  showError "File ${KUBECONFIG_SINGLE} is not generated yet.
+if [ ! -f "${KUBECONFIG}" ]; then
+  showError "File ${KUBECONFIG} is not generated yet.
 You can use $(basename "${BASH_SOURCE[0]}") after you did the step 2_cluster.sh"
 else
   setContext
-  export KUBECONFIG="${KUBECONFIG_SINGLE}"
   export HCLOUD_CONTEXT
 fi
 unset SCRIPT_DIR

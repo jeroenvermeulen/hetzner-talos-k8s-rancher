@@ -99,6 +99,13 @@ if [ ! -f "${SCRIPT_DIR}/CONFIG.sh" ]; then
 fi
 source "${SCRIPT_DIR}/CONFIG.sh"
 
+USER_KUBECONFIG=""
+if [ -n "${KUBECONFIG+x}" ]; then
+  USER_KUBECONFIG="${KUBECONFIG}"
+  if [[ "${USER_KUBECONFIG}" == *:* ]]; then
+    USER_KUBECONFIG="${USER_KUBECONFIG%%:*}"
+  fi
+fi
 IMAGE_SELECTOR="version=${TALOS_VERSION},os=talos"
 CONTROL_SELECTOR="type=controlplane,cluster=${CLUSTER_NAME}"
 WORKER_SELECTOR="type=worker,cluster=${CLUSTER_NAME}"
@@ -109,7 +116,7 @@ WORKER_TYPE="$( echo "${WORKER_TYPE}" | tr '[:upper:]' '[:lower:]' )"
 TALOS_CONTEXT="${CLUSTER_NAME}"
 TALOS_SECRETS="${SCRIPT_DIR}/secrets.${CLUSTER_NAME}.yaml"
 TALOSCONFIG="${SCRIPT_DIR}/talosconfig.${CLUSTER_NAME}.yaml"
-KUBECONFIG_SINGLE="${SCRIPT_DIR}/kubeconfig.${CLUSTER_NAME}.yaml"
+KUBECONFIG="${SCRIPT_DIR}/kubeconfig.${CLUSTER_NAME}.yaml"
 KUBECTL_CONTEXT="admin@${CLUSTER_NAME}"
 HCLOUD_CONTEXT="${CLUSTER_NAME}"
 CONTROL1_NAME="control1.${CLUSTER_NAME}"
@@ -128,5 +135,6 @@ for (( NR=1; NR<="${WORKER_COUNT}"; NR++ )); do
   NODE_NAMES+=("${NODE_NAME}")
 done
 unset NODE_NAME
+export KUBECONFIG
 export TALOSCONFIG
 export KUBECTL_CONTEXT

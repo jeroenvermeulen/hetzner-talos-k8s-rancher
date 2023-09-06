@@ -213,13 +213,10 @@ fi
 
 showProgress "Update kubeconfig for kubectl"
 
-OLD_KUBECONFIG="${KUBECONFIG:=}"
-if [[ "$KUBECONFIG" == *:* ]]; then
-  KUBECONFIG="${KUBECONFIG%%:*}"
+if [ -n "${USER_KUBECONFIG}" ]; then
+  KUBECONFIG="${USER_KUBECONFIG}"  talosctl  kubeconfig  --force
 fi
-talosctl  kubeconfig  --force
-talosctl  kubeconfig  --force  "${KUBECONFIG_SINGLE}"
-KUBECONFIG="${OLD_KUBECONFIG}"
+talosctl  kubeconfig  --force  "${KUBECONFIG}"
 
 for CONTROL_IP in "${CONTROL_IPS[@]}"; do
   waitForTcpPort  "${CONTROL_IP}"  6443
