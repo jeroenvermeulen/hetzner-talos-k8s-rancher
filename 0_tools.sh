@@ -4,6 +4,7 @@ set  +o xtrace  -o errexit  -o nounset  -o pipefail  +o history
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 source  "${SCRIPT_DIR}/lib.sh"
 showNotice "==== Executing $(basename "$0") ===="
+BUILD_ARCH=$( uname -m | sed 's/^x86_/amd/' )
 
 if [ $( uname -s ) == "Darwin" ]; then
   if ! command -v brew > /dev/null; then
@@ -20,22 +21,21 @@ if [ $( uname -s ) == "Darwin" ]; then
   sudo  install  -m 0755  /tmp/kubectl-mayastor  /usr/local/bin/kubectl-mayastor
 elif [ $( uname -s ) == "Linux" ] && command -v apt-get > /dev/null; then
   showProgress "Install packages using APT"
-  DEB_BUILD_ARCH="$( dpkg --print-architecture )"
   sudo  apt-get  update
   sudo  apt-get  install  --assume-yes  packer  jq
 
   showProgress "Install hcloud CLI from Github"
-  DOWNLOAD_URL="$( curl -s https://api.github.com/repos/hetznercloud/cli/releases/latest | jq -r ".assets[] | select(.name==\"hcloud-linux-${DEB_BUILD_ARCH}.tar.gz\") | .browser_download_url" )"
+  DOWNLOAD_URL="$( curl -s https://api.github.com/repos/hetznercloud/cli/releases/latest | jq -r ".assets[] | select(.name==\"hcloud-linux-${BUILD_ARCH}.tar.gz\") | .browser_download_url" )"
   curl -L "${DOWNLOAD_URL}" | tar -zx hcloud --directory=/tmp
   sudo  install  -m 0755  /tmp/hcloud  /usr/local/bin
 
   showProgress "Install talosctl from repo"
-  curl -L "https://github.com/siderolabs/talos/releases/download/${TALOS_VERSION}/talosctl-linux-${DEB_BUILD_ARCH}" \
+  curl -L "https://github.com/siderolabs/talos/releases/download/${TALOS_VERSION}/talosctl-linux-${BUILD_ARCH}" \
     --output /tmp/talosctl
   sudo  install  -m 0755  /tmp/talosctl  /usr/local/bin
 
   showProgress "Install kubectl from repo"
-  curl -L  "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/${DEB_BUILD_ARCH}/kubectl" \
+  curl -L  "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/${BUILD_ARCH}/kubectl" \
     --output /tmp/kubectl
   sudo  install  -m 0755  /tmp/kubectl  /usr/local/bin
 
@@ -52,7 +52,7 @@ elif [ $( uname -s ) == "Linux" ] && command -v apt-get > /dev/null; then
   unzip  -o  -d /tmp  /tmp/kubectl-mayastor.zip
   sudo  install  -m 0755  /tmp/kubectl-mayastor  /usr/local/bin/kubectl-mayastor
 
-  if [ "${DEB_BUILD_ARCH}" != "amd64" ]; then
+  if [ "${BUILD_ARCH}" != "amd64" ]; then
     sudo apt-get  install  --assume-yes  qemu-user
   fi
 else
