@@ -289,7 +289,7 @@ if [ "${WORKER_DATA_VOLUME}" -gt 0 ]; then
       --create-namespace \
       --values "${SCRIPT_DIR}/deploy/mayastor-values.yaml" \
       --wait \
-      --timeout 20m \
+      --timeout 60m \
       --debug
   kubectl  --namespace="${NAMESPACE}"  get  pods
   for NODE_NAME in "${WORKER_NAMES[@]}"; do
