@@ -95,7 +95,7 @@ metadata:
     storageclass.kubernetes.io/is-default-class: 'true'
 provisioner: rancher.io/local-path
 parameters:
-  nodePath: /var/storage/local
+  nodePath: /var/local
 volumeBindingMode: WaitForFirstConsumer
 reclaimPolicy: Delete
 ---
@@ -110,7 +110,7 @@ data:
       "nodePathMap": [
         {
           "node": "DEFAULT_PATH_FOR_NON_LISTED_NODES",
-          "paths": [ "/var/storage/local" ]
+          "paths": [ "/var/local" ]
         }
       ]
     }

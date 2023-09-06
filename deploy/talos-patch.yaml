@@ -5,9 +5,9 @@ machine:
     extraArgs:
       rotate-server-certificates: true
     extraMounts:
-      - destination: /var/storage/local
+      - destination: /var/local
         type: bind
-        source: /var/storage/local
+        source: /var/local
         options:
           - bind
           - rshared

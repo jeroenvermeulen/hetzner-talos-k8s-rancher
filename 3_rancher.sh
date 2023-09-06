@@ -63,10 +63,15 @@ helm  repo  add  rancher  "https://releases.rancher.com/server-charts/latest"
 helm  repo  update  rancher
 NAMESPACE="cattle-system"
 HELM_ACTION="install"
+VERSION=( '' )
+if [ "${RANCHER_VERSION}" != "latest" ]; then
+  VERSION=( --version "${RANCHER_VERSION}" )
+fi
 if  kubectl get namespace --no-headers -o name | grep -x "namespace/${NAMESPACE}"; then
   HELM_ACTION="upgrade"
 fi
 helm  "${HELM_ACTION}"  rancher  rancher/rancher \
+    ${VERSION[@]} \
     --namespace "${NAMESPACE}" \
     --create-namespace \
     --set "hostname=${RANCHER_HOSTNAME}" \

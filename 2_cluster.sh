@@ -277,7 +277,11 @@ if [ "${WORKER_DATA_VOLUME}" -gt 0 ]; then
 
   NAMESPACE="mayastor"
   HELM_ACTION="install"
-  if  kubectl get namespace --no-headers -o name | grep -x "namespace/${NAMESPACE}"; then
+  VERSION=( '' )
+  if [ "${RANCHER_VERSION}" != "latest" ]; then
+    VERSION=( --version "${MAYASTOR_VERSION}" )
+  fi
+  if  helm  get  manifest  --namespace "${NAMESPACE}"  mayastor  &>/dev/null; then
     HELM_ACTION="upgrade"
   else
     kubectl  apply  --namespace="${NAMESPACE}"  --filename="${SCRIPT_DIR}/deploy/mayastor-pre.yaml"
@@ -285,11 +289,12 @@ if [ "${WORKER_DATA_VOLUME}" -gt 0 ]; then
   helm  repo  add  mayastor  https://openebs.github.io/mayastor-extensions/
   helm  repo  update  mayastor
   helm  "${HELM_ACTION}"  mayastor  mayastor/mayastor \
+      ${VERSION[@]} \
       --namespace  "${NAMESPACE}" \
       --create-namespace \
       --values "${SCRIPT_DIR}/deploy/mayastor-values.yaml" \
       --wait \
-      --timeout 60m \
+      --timeout 20m \
       --debug
   kubectl  --namespace="${NAMESPACE}"  get  pods
   for NODE_NAME in "${WORKER_NAMES[@]}"; do
