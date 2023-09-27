@@ -75,11 +75,11 @@ helm  "${HELM_ACTION}"  rancher  rancher/rancher \
     --namespace "${NAMESPACE}" \
     --create-namespace \
     --set "hostname=${RANCHER_HOSTNAME}" \
-    --set replicas=3 \
-    --set ingress.tls.source=letsEncrypt \
-    --set letsEncrypt.email=info@jeroenvermeulen.eu \
-    --set letsEncrypt.ingress.class=traefik \
-    --set global.cattle.psp.enable=false \
+    --set "replicas=3" \
+    --set "ingress.tls.source=letsEncrypt" \
+    --set "letsEncrypt.email=${LETSENCRYPT_EMAIL}" \
+    --set "letsEncrypt.ingress.class=traefik" \
+    --set "global.cattle.psp.enable=false" \
     --wait \
     --timeout 30m \
     --debug

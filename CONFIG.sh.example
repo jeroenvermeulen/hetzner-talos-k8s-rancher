@@ -18,3 +18,4 @@ WORKER_LOCATION=(fsn1 fsn1 fsn1 fsn1 fsn1 fsn1) # Needs at least as many entries
 WORKER_TYPE="CX31"                              # https://docs.hetzner.com/cloud/servers/overview/
 WORKER_DATA_VOLUME=0                            # GB, set to 0 to skip creating data volume for Mayastor, 
                                                 # Worker nodes need to have 3 or more CPU cores to use this.
+LETSENCRYPT_EMAIL="ssl@yourdomain.com"          # Receives expiry notifications etc.
