@@ -26,7 +26,7 @@ function showError() {
   (
     set +o xtrace;
     IFS=' '
-    printf "\n\e[31m%s\e[0m\n\n" "$*"
+    printf "\n\e[31m%s\e[0m\n\n" "$*" | tr '\n' "\n"
   )
 }
 

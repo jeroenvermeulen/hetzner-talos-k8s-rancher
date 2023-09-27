@@ -9,12 +9,12 @@ setContext
 set  -o xtrace
 getNodeIps
 
-for NODE_IP in "${NODE_IPS[@]}"; do
-  showProgress "Upgrading ${NODE_IP}"
+for NODE_IPV4 in "${NODE_IPS[@]}"; do
+  showProgress "Upgrading ${NODE_IPV4}"
   talosctl  upgrade \
     --image="ghcr.io/siderolabs/installer:${TALOS_VERSION}" \
-    --endpoints "${NODE_IP}" \
-    --nodes "${NODE_IP}"
+    --endpoints "${NODE_IPV4}" \
+    --nodes "${NODE_IPV4}"
 done
 
 showNotice "==== Finished $(basename "$0") ===="

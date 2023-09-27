@@ -9,15 +9,15 @@ setContext
 set  -o xtrace
 getNodeIps
 
-for NODE_IP in "${NODE_IPS[@]}"; do
-  showProgress "Reset node ${NODE_IP}"
+for NODE_IPV4 in "${NODE_IPS[@]}"; do
+  showProgress "Reset node ${NODE_IPV4}"
   talosctl  reset \
     --graceful=false \
     --system-labels-to-wipe STATE,EPHEMERAL \
     --reboot \
     --timeout 20s \
-    --endpoints "${NODE_IP}" \
-    --nodes "${NODE_IP}" || true
+    --endpoints "${NODE_IPV4}" \
+    --nodes "${NODE_IPV4}" || true
 done
 
 showNotice "Next steps:

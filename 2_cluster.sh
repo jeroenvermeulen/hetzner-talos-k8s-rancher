@@ -62,6 +62,12 @@ showProgress "Generate Talos configs for controlplane and workers"
 showProgress "Get disk image id"
 
 IMAGE_ID=$( hcloud  image list --selector "${IMAGE_SELECTOR}" --output noheader  --output columns=id | tr -d '\n' )
+if [ -z "${IMAGE_ID}" ]; then
+  set +o xtrace
+  showError "Talos ${TALOS_VERSION} disk image not found at Hetzner Cloud, using selector '${IMAGE_SELECTOR}'."
+  showError "Please execute '1_hcloud_disk_image.sh' first."
+  exit 1
+fi
 
 showProgress "Start control nodes"
 
