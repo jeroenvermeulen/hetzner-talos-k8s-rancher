@@ -13,6 +13,7 @@ for NODE_IPV4 in "${NODE_IPS[@]}"; do
   showProgress "Upgrading ${NODE_IPV4}"
   talosctl  upgrade \
     --image="ghcr.io/siderolabs/installer:${TALOS_VERSION}" \
+    --preserve \
     --endpoints "${NODE_IPV4}" \
     --nodes "${NODE_IPV4}"
 done
