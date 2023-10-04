@@ -7,9 +7,24 @@ controller:
   replicaCount: 2
   hcloudVolumeDefaultLocation: "fsn1"
 node:
-  tolerations:
-    - key: Dummy
-      operator: Exists
+  hostNetwork: true
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: "node-role.kubernetes.io/control-plane"
+                operator: NotIn
+                values:
+                  - ""
+              - key: "instance.hetzner.cloud/is-root-server"
+                operator: NotIn
+                values:
+                  - "true"
+              - key: "csi.hetzner.cloud/location"
+                operator: Exists
+metrics:
+  enabled: true
 storageClasses:
   - name: hcloud-volumes
     defaultStorageClass: false
