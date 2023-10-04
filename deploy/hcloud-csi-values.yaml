@@ -1,0 +1,16 @@
+# https://github.com/hetznercloud/csi-driver/blob/main/chart/values.yaml
+hcloudToken:
+  existingSecret:
+    name: hcloud
+    key: token
+controller:
+  replicaCount: 2
+  hcloudVolumeDefaultLocation: "fsn1"
+node:
+  tolerations:
+    - key: Dummy
+      operator: Exists
+storageClasses:
+  - name: hcloud-volumes
+    defaultStorageClass: false
+    reclaimPolicy: Delete

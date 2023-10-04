@@ -3,7 +3,7 @@
 # Scripts to install Kubernetes on Hetzner Cloud using Talos Linux
 
 ## Components
-- [Hetzner Cloud](https://www.hetzner.com/cloud) cloud hosting, loadbalancers
+- [Hetzner Cloud](https://www.hetzner.com/cloud) virtual servers, loadbalancers, storage volumes
 - [Talos Linux](https://www.talos.dev/) secure, immutable, and minimal
 - [Kubernetes](https://kubernetes.io/) container orchestrator
 - [Rancher](https://www.rancher.com/) enterprise Kubernetes management, dashboard

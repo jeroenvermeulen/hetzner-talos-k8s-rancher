@@ -248,17 +248,6 @@ talosctl  health
 #  --worker-nodes "${WORKER_IPS_COMMA}" \
 #  --wait-timeout 60m
 
-showProgress "Create Hetzner Cloud secret and import Cloud Controller Manager manifest"
-
-NAMESPACE="kube-system"
-if  ! kubectl get -n "${NAMESPACE}" secret --no-headers -o name | grep -x "secret/hcloud"; then
-  HCLOUD_TOKEN="$( grep -A1 "name = '${HCLOUD_CONTEXT}'" ~/.config/hcloud/cli.toml | tail -n1 | cut -d\' -f2 )"
-  kubectl  -n kube-system  create  secret  generic  hcloud  --from-literal="token=${HCLOUD_TOKEN}"
-fi
-kubectl  apply  -f https://github.com/hetznercloud/hcloud-cloud-controller-manager/releases/latest/download/ccm.yaml
-kubectl  set  env  -n kube-system  --env "HCLOUD_LOAD_BALANCERS_LOCATION=${DEFAULT_LB_LOCATION}"  \
-  deployment/hcloud-cloud-controller-manager
-
 showProgress "Patch nodes to add providerID"
 
 for NODE_NAME in "${NODE_NAMES[@]}"; do
@@ -273,9 +262,44 @@ for NODE_NAME in "${NODE_NAMES[@]}"; do
   fi
 done
 
+showProgress "Create Hetzner Cloud secret"
+
+NAMESPACE="kube-system"
+if  ! kubectl get -n "${NAMESPACE}" secret --no-headers -o name | grep -x "secret/hcloud"; then
+  HCLOUD_TOKEN="$( grep -A1 "name = '${HCLOUD_CONTEXT}'" ~/.config/hcloud/cli.toml | tail -n1 | cut -d\' -f2 )"
+  kubectl  -n kube-system  create  secret  generic  hcloud  --from-literal="token=${HCLOUD_TOKEN}"
+fi
+
+showProgress "Install Hetzner Cloud Controller Manager using Helm"
+
+HELM_ACTION="install"
+NAMESPACE="kube-system"
+if  helm  get  manifest  --namespace "${NAMESPACE}"  hccm  &>/dev/null; then
+  HELM_ACTION="upgrade"
+fi
+
+helm  repo  add  hcloud  https://charts.hetzner.cloud
+helm  repo  update  hcloud
+helm  "${HELM_ACTION}"  hccm  hcloud/hcloud-cloud-controller-manager  --namespace "${NAMESPACE}"
+
+kubectl  set  env  -n "${NAMESPACE}"  --env "HCLOUD_LOAD_BALANCERS_LOCATION=${DEFAULT_LB_LOCATION}"  \
+  deployment/hcloud-cloud-controller-manager
+
 showProgress "Install Local Path Storage"
 
 kubectl apply -f "${DEPLOY_DIR}/local-path-storage.yaml"
+
+showProgress "Install Hetzner Cloud CSI using Helm"
+
+HELM_ACTION="install"
+NAMESPACE="kube-system"
+if  helm  get  manifest  --namespace "${NAMESPACE}"  hcloud-csi  &>/dev/null; then
+  HELM_ACTION="upgrade"
+fi
+
+helm  "${HELM_ACTION}"  hcloud-csi  hcloud/hcloud-csi  \
+  --namespace "${NAMESPACE}" \
+  --values "${DEPLOY_DIR}/hcloud-csi-values.yaml"
 
 if [ "${WORKER_DATA_VOLUME}" -gt 0 ]; then
 
