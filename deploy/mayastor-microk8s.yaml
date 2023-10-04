@@ -1,0 +1,128 @@
+etcd-operator:
+  clusters:
+    - name: etcd
+      spec:
+        limitSizeToMaxReadyNodes: true
+        pod:
+          ClusterDomain: .cluster.local.
+          affinity:
+            podAntiAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchExpressions:
+                      - key: etcd_cluster
+                        operator: In
+                        values:
+                          - etcd
+                  topologyKey: kubernetes.io/hostname
+          busyboxImage: busybox:1.28.4
+          hostPathVolume: /var/snap/microk8s/common/mayastor/etcd/$NAME
+          restartPolicy: Always
+        size: 3
+        version: 3.5.4
+  operator:
+    enabled: true
+    image: cdkbot/etcd-operator:0.10.0-microk8s-3
+  rbac:
+    enabled: true
+mayastor:
+  agents:
+    ha:
+      enabled: false
+  base:
+    busyboxImage: busybox:1.28.4
+    metrics:
+      enabled: false
+  csi:
+    node:
+      kubeletDir: /var/snap/microk8s/common/var/lib/kubelet
+  etcd:
+    enabled: false
+    externalEtcdEndpoint: etcd-client
+  image:
+    pullPolicy: IfNotPresent
+    repo: cdkbot
+    tag: v2.0.0-microk8s-1
+  io_engine:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: microk8s.io/mayastor
+                  operator: NotIn
+                  values:
+                    - disable
+    autoCreateImageSize: 10G
+    configLocation: /var/snap/microk8s/common/mayastor/config
+    extraInitContainers:
+      - command:
+          - sh
+          - -c
+          - |
+            if [ -f /data/microk8s.img ]; then
+              return 0
+            fi
+            
+            # create image
+            truncate -s {{ .Values.io_engine.autoCreateImageSize | quote }} /data/microk8s.img
+            
+            # create mayastorpool
+            export CACERT=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+            export TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+            export NAMESPACE=$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)
+            export BODY='{
+              "apiVersion": "openebs.io/v1alpha1",
+              "kind":"DiskPool",
+              "metadata": {
+                "name": "microk8s-'"${MY_NODE_NAME}"'-pool",
+                "namespace": "'"$NAMESPACE"'"
+              },
+              "spec": {
+                "node": "'"${MY_NODE_NAME}"'",
+                "disks": ["/data/microk8s.img"]
+              }
+            }'
+            echo 'Creating disk pool'
+            while ! curl --fail --cacert "$CACERT" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -XPOST -d "$BODY" "https://kubernetes.default.svc/apis/openebs.io/v1alpha1/namespaces/$NAMESPACE/diskpools?fieldManager=kubectl-create"; do
+              echo 'Creating disk pool failed, will retry'
+              sleep 5
+            done
+        env:
+          - name: MY_NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+        image: curlimages/curl:7.81.0
+        name: initialize-pool
+        securityContext:
+          runAsUser: 0
+        volumeMounts:
+          - mountPath: /data
+            name: microk8sdata
+    extraVolumeMounts:
+      - mountPath: /data
+        name: microk8sdata
+    extraVolumes:
+      - hostPath:
+          path: /var/snap/microk8s/common/mayastor/data
+          type: DirectoryOrCreate
+        name: microk8sdata
+    nodeSelector: null
+    serviceAccountName: mayastor-io-engine-sa
+  loki-stack:
+    enabled: false
+  nodeSelector: null
+  obs:
+    callhome:
+      enabled: false
+  operators:
+    pool:
+      disableDeviceValidation: true
+      numRetries: 200
+  storageClass:
+    create: false
+rbac:
+  enabled: true
+storageClass:
+  create: true

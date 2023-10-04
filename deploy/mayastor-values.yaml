@@ -7,3 +7,11 @@ etcd:
   tolerations:
     - effect: NoSchedule
       operator: Exists
+agents:
+  ha:
+    enabled: false
+loki-stack:
+  enabled: false
+obs:
+  callhome:
+    enabled: false
