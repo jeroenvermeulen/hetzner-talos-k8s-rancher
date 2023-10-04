@@ -4,7 +4,6 @@ hcloudToken:
     name: hcloud
     key: token
 controller:
-  replicaCount: 2
   hcloudVolumeDefaultLocation: "fsn1"
 node:
   hostNetwork: true
