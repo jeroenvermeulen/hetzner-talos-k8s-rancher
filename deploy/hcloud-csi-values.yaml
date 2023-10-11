@@ -1,4 +1,5 @@
 # https://github.com/hetznercloud/csi-driver/blob/main/chart/values.yaml
+---
 hcloudToken:
   existingSecret:
     name: hcloud

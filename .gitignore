@@ -1,5 +1,6 @@
 .idea
 *~
+*.tmp
 /secrets.*.yaml
 /talosconfig.*.yaml
 /kubeconfig.*.yaml

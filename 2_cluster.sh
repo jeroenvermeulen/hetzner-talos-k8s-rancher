@@ -342,7 +342,7 @@ if  helm  get  manifest  --namespace "${NAMESPACE}"  hccm  &>/dev/null; then
 fi
 
 # https://github.com/hetznercloud/hcloud-cloud-controller-manager/tree/main/chart
-helm  repo  add  hcloud  https://charts.hetzner.cloud
+helm  repo  add  hcloud  "https://charts.hetzner.cloud"
 helm  repo  update  hcloud
 helm  "${HELM_ACTION}"  hccm  hcloud/hcloud-cloud-controller-manager \
  --namespace "${NAMESPACE}" \
@@ -350,32 +350,11 @@ helm  "${HELM_ACTION}"  hccm  hcloud/hcloud-cloud-controller-manager \
  --set "env.HCLOUD_LOAD_BALANCERS_LOCATION.value=${DEFAULT_LB_LOCATION}" \
  --set "networking.clusterCIDR=${NETWORK_POD_SUBNET}"
 
-#showProgress "Install Cilium using Helm"
-#
-#HELM_ACTION="install"
-#NAMESPACE="kube-system"
-#if  helm  get  manifest  --namespace "${NAMESPACE}"  cilium  &>/dev/null; then
-#  HELM_ACTION="upgrade"
-#fi
-#
-#helm  repo  add  cilium https://helm.cilium.io/
-#helm  repo  update  cilium
-#helm install \
-#    cilium \
-#    cilium/cilium \
-#    --version 1.14.0 \
-#    --namespace "${NAMESPACE}" \
-#    --set ipam.mode=kubernetes \
-#    --set=kubeProxyReplacement=disabled \
-#    --set=securityContext.capabilities.ciliumAgent="{CHOWN,KILL,NET_ADMIN,NET_RAW,IPC_LOCK,SYS_ADMIN,SYS_RESOURCE,DAC_OVERRIDE,FOWNER,SETGID,SETUID}" \
-#    --set=securityContext.capabilities.cleanCiliumState="{NET_ADMIN,SYS_ADMIN,SYS_RESOURCE}" \
-#    --set=cgroup.autoMount.enabled=false \
-#    --set=cgroup.hostRoot=/sys/fs/cgroup
-## https://github.com/cilium/cilium/blob/v1.14.2/install/kubernetes/cilium/values.yaml
-
 showProgress "Install Local Path Storage"
 
-kubectl apply -f "${DEPLOY_DIR}/local-path-storage.yaml"
+kubectl apply \
+  -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.24/deploy/local-path-storage.yaml \
+  -f deploy/local-path-storage-ns.yaml
 
 showProgress "Install Hetzner Cloud CSI using Helm"
 
@@ -405,7 +384,7 @@ if [ "${WORKER_DATA_VOLUME}" -gt 0 ]; then
   else
     kubectl  apply  --namespace="${NAMESPACE}"  --filename="${SCRIPT_DIR}/deploy/mayastor-pre.yaml"
   fi
-  helm  repo  add  mayastor  https://openebs.github.io/mayastor-extensions/
+  helm  repo  add  mayastor  "https://openebs.github.io/mayastor-extensions/"
   helm  repo  update  mayastor
   helm  "${HELM_ACTION}"  mayastor  mayastor/mayastor \
       ${VERSION[@]} \

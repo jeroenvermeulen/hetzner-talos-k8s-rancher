@@ -13,7 +13,7 @@ showProgress "Install Traefik"
 getNodeIps
 getLoadBalancerIps
 
-helm  repo  add  traefik https://traefik.github.io/charts
+helm  repo  add  traefik  "https://traefik.github.io/charts"
 helm  repo  update  traefik
 NAMESPACE="traefik"
 HELM_ACTION="install"
@@ -40,7 +40,7 @@ kubectl -n "${NAMESPACE}" get pods
 
 showProgress "Install Jetstack Cert-Manager for Let's Encrypt"
 
-helm  repo  add  jetstack  https://charts.jetstack.io
+helm  repo  add  jetstack  "https://charts.jetstack.io"
 helm  repo  update  jetstack
 NAMESPACE="cert-manager"
 HELM_ACTION="install"
