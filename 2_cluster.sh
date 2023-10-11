@@ -303,12 +303,11 @@ done
 
 showProgress "Wait for cluster to become healthy"
 
-talosctl  health
-#talosctl  health \
-#  --nodes "${CONTROL_IPS[0]}" \
-#  --control-plane-nodes "${CONTROL_IPS_COMMA}" \
-#  --worker-nodes "${WORKER_IPS_COMMA}" \
-#  --wait-timeout 60m
+talosctl  health \
+  --nodes "${CONTROL_IPS[0]}" \
+  --control-plane-nodes "${CONTROL_IPS_COMMA}" \
+  --worker-nodes "${WORKER_IPS_COMMA}" \
+  --wait-timeout 60m
 
 showProgress "Patch nodes to add providerID"
 
@@ -347,17 +346,32 @@ helm  repo  add  hcloud  https://charts.hetzner.cloud
 helm  repo  update  hcloud
 helm  "${HELM_ACTION}"  hccm  hcloud/hcloud-cloud-controller-manager \
  --namespace "${NAMESPACE}" \
- --values "${SCRIPT_DIR}/deploy/hcloud-ccm-values.yaml"
-# --set "env.HCLOUD_LOAD_BALANCERS_LOCATION=${DEFAULT_LB_LOCATION}
+ --values "${SCRIPT_DIR}/deploy/hcloud-ccm-values.yaml" \
+ --set "env.HCLOUD_LOAD_BALANCERS_LOCATION.value=${DEFAULT_LB_LOCATION}" \
+ --set "networking.clusterCIDR=${NETWORK_POD_SUBNET}"
 
-kubectl  set  env  -n "${NAMESPACE}"  --env "HCLOUD_LOAD_BALANCERS_LOCATION=${DEFAULT_LB_LOCATION}"  \
-  deployment/hcloud-cloud-controller-manager
-kubectl  set  env  -n "${NAMESPACE}"  --env "HCLOUD_LOAD_BALANCERS_USE_PRIVATE_IP=true"  \
-  deployment/hcloud-cloud-controller-manager
-#kubectl  set  env  -n "${NAMESPACE}"  --env "HCLOUD_LOAD_BALANCERS_DISABLE_PRIVATE_INGRESS=true"  \
-#  deployment/hcloud-cloud-controller-manager
-#kubectl  set  env  -n "${NAMESPACE}"  --env "HCLOUD_NETWORK=${NETWORK_NAME}"  \
-#  deployment/hcloud-cloud-controller-manager
+#showProgress "Install Cilium using Helm"
+#
+#HELM_ACTION="install"
+#NAMESPACE="kube-system"
+#if  helm  get  manifest  --namespace "${NAMESPACE}"  cilium  &>/dev/null; then
+#  HELM_ACTION="upgrade"
+#fi
+#
+#helm  repo  add  cilium https://helm.cilium.io/
+#helm  repo  update  cilium
+#helm install \
+#    cilium \
+#    cilium/cilium \
+#    --version 1.14.0 \
+#    --namespace "${NAMESPACE}" \
+#    --set ipam.mode=kubernetes \
+#    --set=kubeProxyReplacement=disabled \
+#    --set=securityContext.capabilities.ciliumAgent="{CHOWN,KILL,NET_ADMIN,NET_RAW,IPC_LOCK,SYS_ADMIN,SYS_RESOURCE,DAC_OVERRIDE,FOWNER,SETGID,SETUID}" \
+#    --set=securityContext.capabilities.cleanCiliumState="{NET_ADMIN,SYS_ADMIN,SYS_RESOURCE}" \
+#    --set=cgroup.autoMount.enabled=false \
+#    --set=cgroup.hostRoot=/sys/fs/cgroup
+## https://github.com/cilium/cilium/blob/v1.14.2/install/kubernetes/cilium/values.yaml
 
 showProgress "Install Local Path Storage"
 
