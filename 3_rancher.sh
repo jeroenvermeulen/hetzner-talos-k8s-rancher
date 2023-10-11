@@ -28,10 +28,10 @@ helm  "${HELM_ACTION}"  traefik  traefik/traefik \
     --set "service.spec.loadBalancerIP=${WORKER_LB_IPV4}" \
     --set-json "ports.web.proxyProtocol.trustedIPs=[\"${WORKER_LB_IPV4}\",\"${WORKER_LB_IPV6}\"]" \
     --set-json "ports.websecure.proxyProtocol.trustedIPs=[\"${WORKER_LB_IPV4}\",\"${WORKER_LB_IPV6}\"]" \
-    --set-json "service.annotations={ \
-          \"load-balancer.hetzner.cloud/name\":\"${WORKER_LB_NAME}\", \
-          \"load-balancer.hetzner.cloud/location\":\"${WORKER_LB_LOCATION}\", \
-          \"external-dns.alpha.kubernetes.io/hostname\":\"${WORKER_LB_NAME}\" \
+    --set-json "service.annotations={
+          \"load-balancer.hetzner.cloud/name\":\"${WORKER_LB_NAME}\",
+          \"load-balancer.hetzner.cloud/location\":\"${WORKER_LB_LOCATION}\",
+          \"external-dns.alpha.kubernetes.io/hostname\":\"${WORKER_LB_NAME}\"
     }"\
     --wait \
     --timeout 20m \

@@ -49,6 +49,11 @@ function setContext() {
   kubectl  config  set-context  "${KUBECTL_CONTEXT}"
 }
 
+function getNodePrivateIp() {
+  local _NODE_NAME="${1}"
+  hcloud server describe "${_NODE_NAME}" --output json | jq -r '.private_net[0].ip'
+}
+
 function getNodeIps() {
   showProgress "Getting node IPs"
   NODE_IPS=()
@@ -56,12 +61,12 @@ function getNodeIps() {
   WORKER_IPS=()
   local _NODE_NAME
   for _NODE_NAME in "${CONTROL_NAMES[@]}"; do
-    NODE_IPS+=("$( hcloud server ip "${_NODE_NAME}" )")
-    CONTROL_IPS+=("$( hcloud server ip "${_NODE_NAME}" )")
+    NODE_IPS+=("$( getNodePrivateIp "${_NODE_NAME}" )")
+    CONTROL_IPS+=("$( getNodePrivateIp "${_NODE_NAME}" )")
   done
   for _NODE_NAME in "${WORKER_NAMES[@]}"; do
-    NODE_IPS+=("$( hcloud server ip "${_NODE_NAME}" )")
-    WORKER_IPS+=("$( hcloud server ip "${_NODE_NAME}" )")
+    NODE_IPS+=("$( getNodePrivateIp "${_NODE_NAME}" )")
+    WORKER_IPS+=("$( getNodePrivateIp "${_NODE_NAME}" )")
   done
   NODE_IPS_COMMA="$( IFS=','; echo "${NODE_IPS[*]}" )"
   CONTROL_IPS_COMMA="$( IFS=','; echo "${CONTROL_IPS[*]}" )"
@@ -107,6 +112,11 @@ if [ -n "${KUBECONFIG+x}" ]; then
   fi
 fi
 IMAGE_SELECTOR="version=${TALOS_VERSION},os=talos"
+NETWORK_NAME="${CLUSTER_NAME}"
+NETWORK_RANGE="10.0.0.0/8"
+NETWORK_SUBNET="10.1.0.0/23"
+NETWORK_POD_SUBNET="10.244.0.0/16"
+NETWORK_SELECTOR="cluster=${CLUSTER_NAME}"
 CONTROL_SELECTOR="type=controlplane,cluster=${CLUSTER_NAME}"
 WORKER_SELECTOR="type=worker,cluster=${CLUSTER_NAME}"
 CONTROL_LB_NAME="control.${CLUSTER_NAME}"

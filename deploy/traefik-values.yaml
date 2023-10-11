@@ -5,11 +5,12 @@ logs:
   general:
     level: INFO
 service:
-  spec:
-    externalTrafficPolicy: Local
   annotations:
     load-balancer.hetzner.cloud/algorithm-type: least_connections
     load-balancer.hetzner.cloud/uses-proxyprotocol: true
+    load-balancer.hetzner.cloud/use-private-ip: true
+  spec:
+    externalTrafficPolicy: Local
 providers:
   kubernetesIngress:
     publishedService:

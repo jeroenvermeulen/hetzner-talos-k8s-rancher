@@ -5,6 +5,7 @@ TALOS_VERSION="v1.5.3"                          # https://github.com/siderolabs/
 KUBE_VERSION="v1.26.9"                          # At the moment Rancher can't run on K8S v1.27
 RANCHER_VERSION="latest"                        # https://github.com/rancher/rancher/releases
 MAYASTOR_VERSION="latest"                       # https://github.com/openebs/mayastor-extensions/releases
+NETWORK_ZONE="eu-central"                       # https://docs.hetzner.com/cloud/general/locations/
 DEFAULT_LB_LOCATION="fsn1"                      # https://docs.hetzner.com/cloud/general/locations/
 CONTROL_LB_TYPE="LB11"                          # https://docs.hetzner.com/cloud/load-balancers/overview#pricing
 CONTROL_LB_LOCATION="fsn1"                      # https://docs.hetzner.com/cloud/general/locations/

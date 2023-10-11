@@ -8,6 +8,23 @@ showNotice "==== Executing $(basename "$0") ===="
 set  -o xtrace
 setContext
 
+showProgress "Private Network"
+if  !  hcloud  network  list  --output noheader  --output columns=name | grep "^${NETWORK_NAME}$"; then
+  hcloud  network  create \
+    --name "${NETWORK_NAME}" \
+    --label "${NETWORK_SELECTOR}" \
+    --ip-range "${NETWORK_RANGE}"
+fi
+
+showProgress "Subnet"
+if  !  hcloud network describe "${NETWORK_NAME}" --output json | jq -r '.subnets[0].ip_range' | grep "^${NETWORK_SUBNET}$"; then
+  hcloud  network  add-subnet  "${NETWORK_NAME}" \
+    --type server \
+    --network-zone "${NETWORK_ZONE}" \
+    --ip-range "${NETWORK_SUBNET}"
+fi
+NETWORK_ID=$( hcloud network list --selector "${NETWORK_SELECTOR}"  --output noheader  --output columns=id | head -n1 )
+
 showProgress "Control load balancer"
 
 if  ! hcloud load-balancer list --output noheader  --output columns=name | grep "^${CONTROL_LB_NAME}$"; then
@@ -18,11 +35,18 @@ if  ! hcloud load-balancer list --output noheader  --output columns=name | grep 
     --type "$( echo ${CONTROL_LB_TYPE} | tr '[:upper:]' '[:lower:]' )"
 fi
 
+if  [ "${NETWORK_ID}" != "$(hcloud load-balancer describe "${CONTROL_LB_NAME}" --output json | jq -r '.private_net[0].network')" ]; then
+  hcloud  load-balancer  attach-to-network \
+    --network "${NETWORK_NAME}" \
+    "${CONTROL_LB_NAME}"
+fi
+
 TARGET_JSON=$( hcloud load-balancer describe "${CONTROL_LB_NAME}" --output json \
                | jq ".targets[] | select(.label_selector.selector == \"${CONTROL_SELECTOR}\")" )
 if [ -z "${TARGET_JSON}" ]; then
   hcloud  load-balancer  add-target  "${CONTROL_LB_NAME}" \
-      --label-selector "${CONTROL_SELECTOR}"
+      --label-selector "${CONTROL_SELECTOR}" \
+      --use-private-ip
 fi
 
 for PORT in 6443 50000 50001; do
@@ -46,6 +70,12 @@ if  ! hcloud load-balancer list --output noheader  --output columns=name | grep 
     --type "$( echo ${WORKER_LB_TYPE} | tr '[:upper:]' '[:lower:]' )"
 fi
 
+if  [ "${NETWORK_ID}" != "$(hcloud load-balancer describe "${WORKER_LB_NAME}" --output json | jq -r '.private_net[].network')" ]; then
+  hcloud  load-balancer  attach-to-network \
+    --network "${NETWORK_NAME}" \
+    "${WORKER_LB_NAME}"
+fi
+
 # Traefik will add targets + services to worker load balancer.
 
 getLoadBalancerIps
@@ -57,6 +87,29 @@ showProgress "Generate Talos configs for controlplane and workers"
   if [ ! -f "${TALOS_SECRETS}" ]; then
     talosctl  gen  secrets  -o "${TALOS_SECRETS}"
   fi
+)
+
+showProgress "Generate talosconfig"
+
+talosctl  gen  config  "${TALOS_CONTEXT}"  "https://${CONTROL_LB_IPV4}:6443" \
+  --with-secrets "${TALOS_SECRETS}" \
+  --output-types talosconfig  \
+  --output "${TALOSCONFIG}"  \
+  --force
+talosctl  config  endpoint  "${CONTROL_LB_IPV4}"
+talosctl  config  nodes     "${CONTROL_LB_IPV4}"
+(
+  MERGE_TALOSCONFIG="${TALOSCONFIG}"
+  # Unset TALOSCONFIG in subshell to run these commands against the default config
+  TALOSCONFIG=
+  if !  talosctl  --context "talos-default"  config  info  2>/dev/null;  then
+    talosctl  config  add  "talos-default"
+  fi
+  talosctl  config  context  talos-default
+  if  talosctl  --context "${TALOS_CONTEXT}"  config  info  2>/dev/null; then
+    talosctl  config  remove  "${TALOS_CONTEXT}"  --noconfirm
+  fi
+  talosctl  config  merge  "${MERGE_TALOSCONFIG}"
 )
 
 showProgress "Get disk image id"
@@ -80,7 +133,15 @@ for (( NR=0; NR<${#CONTROL_NAMES[@]}; NR++ )); do
       --with-secrets "${TALOS_SECRETS}" \
       --config-patch "@${SCRIPT_DIR}/deploy/talos-patch.yaml" \
       --config-patch-control-plane "@${SCRIPT_DIR}/deploy/talos-patch-control.yaml" \
-      --config-patch "[ {
+      --config-patch "[
+                        {
+                          \"op\": \"add\",
+                          \"path\": \"/cluster/network\",
+                          \"value\": {
+                                       \"podSubnets\": [ \"${NETWORK_POD_SUBNET}\" ]
+                                     }
+                        },
+                        {
                           \"op\": \"replace\",
                           \"path\": \"/machine/network/hostname\",
                           \"value\": \"${NODE_NAME}\"
@@ -91,6 +152,13 @@ for (( NR=0; NR<${#CONTROL_NAMES[@]}; NR++ )); do
                           \"value\": {
                                        \"node.kubernetes.io/instance-type\": \"${CONTROL_TYPE}\",
                                        \"topology.kubernetes.io/zone\": \"${CONTROL_LOCATION[${NR}]\"}\"
+                                     }
+                        },
+                        {
+                          \"op\": \"add\",
+                          \"path\": \"/machine/kubelet/nodeIP\",
+                          \"value\": {
+                                       \"validSubnets\": [ \"${NETWORK_SUBNET}\" ]
                                      }
                         }
                       ]" \
@@ -105,6 +173,7 @@ for (( NR=0; NR<${#CONTROL_NAMES[@]}; NR++ )); do
   fi
   hcloud  server  create \
       --name "${NODE_NAME}" \
+      --network "${NETWORK_NAME}" \
       --image "${IMAGE_ID}" \
       --type "${CONTROL_TYPE}" \
       --location "${CONTROL_LOCATION[${NR}]}" \
@@ -136,7 +205,15 @@ for (( NR=0; NR<${#WORKER_NAMES[@]}; NR++ )); do
     talosctl  gen  config  "${TALOS_CONTEXT}"  "https://${CONTROL_LB_IPV4}:6443" \
       --with-secrets "${TALOS_SECRETS}" \
       --config-patch "@${SCRIPT_DIR}/deploy/talos-patch.yaml" \
-      --config-patch "[ {
+      --config-patch "[
+                        {
+                          \"op\": \"add\",
+                          \"path\": \"/cluster/network\",
+                          \"value\": {
+                                       \"podSubnets\": [ \"${NETWORK_POD_SUBNET}\" ]
+                                     }
+                        },
+                        {
                           \"op\": \"replace\",
                           \"path\": \"/machine/network/hostname\",
                           \"value\": \"${NODE_NAME}\"
@@ -147,6 +224,13 @@ for (( NR=0; NR<${#WORKER_NAMES[@]}; NR++ )); do
                           \"value\": {
                                        \"node.kubernetes.io/instance-type\": \"${WORKER_TYPE}\",
                                        \"topology.kubernetes.io/zone\": \"${WORKER_LOCATION[${NR}]\"}\"
+                                     }
+                        },
+                        {
+                          \"op\": \"add\",
+                          \"path\": \"/machine/kubelet/nodeIP\",
+                          \"value\": {
+                                       \"validSubnets\": [ \"${NETWORK_SUBNET}\" ]
                                      }
                         }
                       ]" \
@@ -162,6 +246,7 @@ for (( NR=0; NR<${#WORKER_NAMES[@]}; NR++ )); do
   fi
   hcloud  server  create \
       --name "${NODE_NAME}" \
+      --network "${NETWORK_NAME}" \
       --image "${IMAGE_ID}" \
       --type "${WORKER_TYPE}" \
       --location "${WORKER_LOCATION[${NR}]}" \
@@ -183,32 +268,9 @@ done
 
 getNodeIps
 
-showProgress "Generate talosconfig"
-
-talosctl  gen  config  "${TALOS_CONTEXT}"  "https://${CONTROL_LB_IPV4}:6443" \
-  --with-secrets "${TALOS_SECRETS}" \
-  --output-types talosconfig  \
-  --output "${TALOSCONFIG}"  \
-  --force
-talosctl  config  endpoint  "${CONTROL_LB_IPV4}"
-talosctl  config  nodes     "${CONTROL_LB_IPV4}"
-(
-  MERGE_TALOSCONFIG="${TALOSCONFIG}"
-  # Unset TALOSCONFIG in subshell to run these commands against the default config
-  TALOSCONFIG=
-  if !  talosctl  --context "talos-default"  config  info  2>/dev/null;  then
-    talosctl  config  add  "talos-default"
-  fi
-  talosctl  config  context  talos-default
-  if  talosctl  --context "${TALOS_CONTEXT}"  config  info  2>/dev/null; then
-    talosctl  config  remove  "${TALOS_CONTEXT}"  --noconfirm
-  fi
-  talosctl  config  merge  "${MERGE_TALOSCONFIG}"
-)
-
-for NODE_IP in "${NODE_IPS[@]}"; do
-  waitForTcpPort  "${NODE_IP}"  50000
-done
+#for NODE_IP in "${NODE_IPS[@]}"; do
+#  waitForTcpPort  "${NODE_IP}"  50000
+#done
 waitForTcpPort  "${CONTROL_LB_IPV4}"  50000
 
 showProgress "Bootstrap Talos cluster"
@@ -224,9 +286,9 @@ if [ -n "${USER_KUBECONFIG}" ]; then
 fi
 talosctl  kubeconfig  --force  "${KUBECONFIG}"
 
-for CONTROL_IP in "${CONTROL_IPS[@]}"; do
-  waitForTcpPort  "${CONTROL_IP}"  6443
-done
+#for CONTROL_IP in "${CONTROL_IPS[@]}"; do
+#  waitForTcpPort  "${CONTROL_IP}"  6443
+#done
 waitForTcpPort  "${CONTROL_LB_IPV4}"  6443
 
 showProgress "Wait for first control node to become Ready"
@@ -267,7 +329,9 @@ showProgress "Create Hetzner Cloud secret"
 NAMESPACE="kube-system"
 if  ! kubectl get -n "${NAMESPACE}" secret --no-headers -o name | grep -x "secret/hcloud"; then
   HCLOUD_TOKEN="$( grep -A1 "name = '${HCLOUD_CONTEXT}'" ~/.config/hcloud/cli.toml | tail -n1 | cut -d\' -f2 )"
-  kubectl  -n kube-system  create  secret  generic  hcloud  --from-literal="token=${HCLOUD_TOKEN}"
+  kubectl  -n kube-system  create  secret  generic  hcloud \
+   --from-literal="token=${HCLOUD_TOKEN}" \
+   --from-literal="network=${NETWORK_NAME}"
 fi
 
 showProgress "Install Hetzner Cloud Controller Manager using Helm"
@@ -278,12 +342,22 @@ if  helm  get  manifest  --namespace "${NAMESPACE}"  hccm  &>/dev/null; then
   HELM_ACTION="upgrade"
 fi
 
+# https://github.com/hetznercloud/hcloud-cloud-controller-manager/tree/main/chart
 helm  repo  add  hcloud  https://charts.hetzner.cloud
 helm  repo  update  hcloud
-helm  "${HELM_ACTION}"  hccm  hcloud/hcloud-cloud-controller-manager  --namespace "${NAMESPACE}"
+helm  "${HELM_ACTION}"  hccm  hcloud/hcloud-cloud-controller-manager \
+ --namespace "${NAMESPACE}" \
+ --values "${SCRIPT_DIR}/deploy/hcloud-ccm-values.yaml"
+# --set "env.HCLOUD_LOAD_BALANCERS_LOCATION=${DEFAULT_LB_LOCATION}
 
 kubectl  set  env  -n "${NAMESPACE}"  --env "HCLOUD_LOAD_BALANCERS_LOCATION=${DEFAULT_LB_LOCATION}"  \
   deployment/hcloud-cloud-controller-manager
+kubectl  set  env  -n "${NAMESPACE}"  --env "HCLOUD_LOAD_BALANCERS_USE_PRIVATE_IP=true"  \
+  deployment/hcloud-cloud-controller-manager
+#kubectl  set  env  -n "${NAMESPACE}"  --env "HCLOUD_LOAD_BALANCERS_DISABLE_PRIVATE_INGRESS=true"  \
+#  deployment/hcloud-cloud-controller-manager
+#kubectl  set  env  -n "${NAMESPACE}"  --env "HCLOUD_NETWORK=${NETWORK_NAME}"  \
+#  deployment/hcloud-cloud-controller-manager
 
 showProgress "Install Local Path Storage"
 
@@ -297,6 +371,7 @@ if  helm  get  manifest  --namespace "${NAMESPACE}"  hcloud-csi  &>/dev/null; th
   HELM_ACTION="upgrade"
 fi
 
+# https://github.com/hetznercloud/csi-driver/tree/main/chart
 helm  "${HELM_ACTION}"  hcloud-csi  hcloud/hcloud-csi  \
   --namespace "${NAMESPACE}" \
   --values "${DEPLOY_DIR}/hcloud-csi-values.yaml"
