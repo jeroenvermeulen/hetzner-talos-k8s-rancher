@@ -187,7 +187,7 @@ for (( NR=0; NR<${#CONTROL_NAMES[@]}; NR++ )); do
     talosctl  apply-config \
       --file "${CONFIG_FILE}" \
       --endpoints "${CONTROL_LB_IPV4}" \
-      --nodes "$( getNodePrivateIp "${NODE_NAME}" )"
+      --nodes "$( getNodePrivateIp "${NODE_NAME}" )" || echo "Warning: Apply failed"
     continue
   fi
   hcloud  server  create \
@@ -265,7 +265,7 @@ for (( NR=0; NR<${#WORKER_NAMES[@]}; NR++ )); do
     talosctl  apply-config \
       --file "${CONFIG_FILE}" \
       --endpoints "${CONTROL_LB_IPV4}" \
-      --nodes "$( getNodePrivateIp "${NODE_NAME}" )"
+      --nodes "$( getNodePrivateIp "${NODE_NAME}" )" || echo "Warning: Apply failed"
     continue
   fi
   hcloud  server  create \
