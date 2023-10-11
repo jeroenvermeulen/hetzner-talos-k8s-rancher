@@ -14,5 +14,5 @@ env:
     value: "true"
 networking:
   enabled: true
-#metrics:
-#  enabled: true
+metrics:
+  enabled: true
