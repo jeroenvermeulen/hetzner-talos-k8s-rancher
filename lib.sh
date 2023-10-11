@@ -54,6 +54,11 @@ function getNodePrivateIp() {
   hcloud server describe "${_NODE_NAME}" --output json | jq -r '.private_net[0].ip'
 }
 
+function getNodePublicIpv4() {
+  local _NODE_NAME="${1}"
+  hcloud server describe "${_NODE_NAME}" --output json | jq -r '.public_net.ipv4.ip'
+}
+
 function getNodeIps() {
   showProgress "Getting node IPs"
   NODE_IPS=()
@@ -117,6 +122,7 @@ NETWORK_RANGE="10.0.0.0/8"
 NETWORK_SUBNET="10.1.0.0/23"
 NETWORK_POD_SUBNET="10.244.0.0/16"
 NETWORK_SELECTOR="cluster=${CLUSTER_NAME}"
+FIREWALL_NAME="${CLUSTER_NAME}-private-only"
 CONTROL_SELECTOR="type=controlplane,cluster=${CLUSTER_NAME}"
 WORKER_SELECTOR="type=worker,cluster=${CLUSTER_NAME}"
 CONTROL_LB_NAME="control.${CLUSTER_NAME}"

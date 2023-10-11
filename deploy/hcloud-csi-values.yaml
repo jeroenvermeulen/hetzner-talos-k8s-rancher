@@ -23,8 +23,8 @@ node:
                   - "true"
               - key: "csi.hetzner.cloud/location"
                 operator: Exists
-metrics:
-  enabled: true
+#metrics:
+#  enabled: true
 storageClasses:
   - name: hcloud-volumes
     defaultStorageClass: false

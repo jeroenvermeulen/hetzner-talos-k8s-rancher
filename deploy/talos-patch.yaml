@@ -8,7 +8,6 @@ cluster:
       name: none
 machine:
   features:
-    # @TODO: Do we want/need this?
     kubePrism:
       enabled: true
       port: 7445

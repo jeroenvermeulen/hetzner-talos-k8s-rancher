@@ -17,6 +17,7 @@ if  !  hcloud  network  list  --output noheader  --output columns=name | grep "^
 fi
 
 showProgress "Subnet"
+
 if  !  hcloud network describe "${NETWORK_NAME}" --output json | jq -r '.subnets[0].ip_range' | grep "^${NETWORK_SUBNET}$"; then
   hcloud  network  add-subnet  "${NETWORK_NAME}" \
     --type server \
@@ -24,6 +25,19 @@ if  !  hcloud network describe "${NETWORK_NAME}" --output json | jq -r '.subnets
     --ip-range "${NETWORK_SUBNET}"
 fi
 NETWORK_ID=$( hcloud network list --selector "${NETWORK_SELECTOR}"  --output noheader  --output columns=id | head -n1 )
+
+showProgress "Firewall"
+
+if  !  hcloud  firewall  list  --output noheader  --output columns=name | grep "^${FIREWALL_NAME}$"; then
+  hcloud  firewall  create  \
+    --name "${FIREWALL_NAME}" \
+    --label "${NETWORK_SELECTOR}"
+fi
+if [ "${CLUSTER_NAME}" != "$(hcloud  firewall  describe "${FIREWALL_NAME}"  -o json | jq -r '.labels.cluster' )" ]; then
+  hcloud  firewall  apply-to-resource  "${FIREWALL_NAME}" \
+    --type label_selector \
+    --label-selector  "${NETWORK_SELECTOR}"
+fi
 
 showProgress "Control load balancer"
 
@@ -169,6 +183,11 @@ for (( NR=0; NR<${#CONTROL_NAMES[@]}; NR++ )); do
       --force
   )
   if  hcloud server list --output noheader  --output columns=name | grep "^${NODE_NAME}$"; then
+    showProgress "Apply config to ${NODE_NAME}"
+    talosctl  apply-config \
+      --file "${CONFIG_FILE}" \
+      --endpoints "${CONTROL_LB_IPV4}" \
+      --nodes "$( getNodePrivateIp "${NODE_NAME}" )"
     continue
   fi
   hcloud  server  create \
@@ -242,6 +261,11 @@ for (( NR=0; NR<${#WORKER_NAMES[@]}; NR++ )); do
       --force
   )
   if  hcloud server list --output noheader  --output columns=name | grep "^${NODE_NAME}$"; then
+    showProgress "Apply config to ${NODE_NAME}"
+    talosctl  apply-config \
+      --file "${CONFIG_FILE}" \
+      --endpoints "${CONTROL_LB_IPV4}" \
+      --nodes "$( getNodePrivateIp "${NODE_NAME}" )"
     continue
   fi
   hcloud  server  create \
@@ -267,6 +291,16 @@ for NODE_NAME in "${NODE_NAMES[@]}"; do
 done
 
 getNodeIps
+
+for NODE_NAME in "${NODE_NAMES[@]}"; do
+  _PUBLIC_IPV4="$(getNodePublicIpv4 "${NODE_NAME}")"
+  _CIDR="${_PUBLIC_IPV4}/32"
+  for _PROTOCOL in tcp udp; do
+    if ! hcloud firewall describe "${FIREWALL_NAME}" -o json | jq -e ".rules[] | select(.protocol==\"${_PROTOCOL}\" and .source_ips==[\"${_CIDR}\"])"; then
+      hcloud firewall add-rule "${FIREWALL_NAME}" --source-ips "${_CIDR}"  --port any  --protocol "${_PROTOCOL}"  --direction in  --description "${NODE_NAME}"
+    fi
+  done
+done
 
 #for NODE_IP in "${NODE_IPS[@]}"; do
 #  waitForTcpPort  "${NODE_IP}"  50000
@@ -350,6 +384,28 @@ helm  "${HELM_ACTION}"  hccm  hcloud/hcloud-cloud-controller-manager \
  --set "env.HCLOUD_LOAD_BALANCERS_LOCATION.value=${DEFAULT_LB_LOCATION}" \
  --set "networking.clusterCIDR=${NETWORK_POD_SUBNET}"
 
+#showProgress "Install Cilium using Helm"
+#
+#HELM_ACTION="install"
+#NAMESPACE="kube-system"
+#if  helm  get  manifest  --namespace "${NAMESPACE}"  cilium  &>/dev/null; then
+#  HELM_ACTION="upgrade"
+#fi
+#
+#helm  repo  add  cilium https://helm.cilium.io/
+#helm  repo  update  cilium
+#helm "${HELM_ACTION}" \
+#    cilium \
+#    cilium/cilium \
+#    --namespace "${NAMESPACE}" \
+#    --set ipam.mode=kubernetes \
+#    --set=kubeProxyReplacement=disabled \
+#    --set=securityContext.capabilities.ciliumAgent="{CHOWN,KILL,NET_ADMIN,NET_RAW,IPC_LOCK,SYS_ADMIN,SYS_RESOURCE,DAC_OVERRIDE,FOWNER,SETGID,SETUID}" \
+#    --set=securityContext.capabilities.cleanCiliumState="{NET_ADMIN,SYS_ADMIN,SYS_RESOURCE}" \
+#    --set=cgroup.autoMount.enabled=false \
+#    --set=cgroup.hostRoot=/sys/fs/cgroup
+## https://github.com/cilium/cilium/blob/v1.14.2/install/kubernetes/cilium/values.yaml
+
 showProgress "Install Local Path Storage"
 
 kubectl apply \
@@ -415,7 +471,8 @@ fi
 showProgress "Show nodes"
 
 kubectl  get  nodes  -o wide
+set +o xtrace
 
-showWarning "Make sure the DNS of '${RANCHER_HOSTNAME}' resolves to the load balancer IP '${WORKER_LB_IPV4}'"
+showWarning "Make sure the DNS of '${RANCHER_HOSTNAME}' resolves to the load balancer IP '${WORKER_LB_IPV4}' and IPv6 '${WORKER_LB_IPV6}'"
 
 showNotice "==== Finished $(basename "$0") ===="

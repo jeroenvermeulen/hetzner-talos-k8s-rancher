@@ -20,6 +20,7 @@ HELM_ACTION="install"
 if  helm  get  manifest  --namespace "${NAMESPACE}"  traefik  &>/dev/null; then
   HELM_ACTION="upgrade"
 fi
+# https://github.com/traefik/traefik-helm-chart/blob/master/traefik/values.yaml
 # https://pkg.go.dev/github.com/hetznercloud/hcloud-cloud-controller-manager/internal/annotation#Name
 helm  "${HELM_ACTION}"  traefik  traefik/traefik \
     --namespace  "${NAMESPACE}" \
@@ -47,6 +48,7 @@ HELM_ACTION="install"
 if  helm  get  manifest  --namespace "${NAMESPACE}"  cert-manager  &>/dev/null; then
   HELM_ACTION="upgrade"
 fi
+# https://github.com/cert-manager/cert-manager/blob/master/deploy/charts/cert-manager/values.yaml
 helm  "${HELM_ACTION}"  cert-manager  jetstack/cert-manager \
     --namespace  "${NAMESPACE}" \
     --create-namespace \
@@ -70,6 +72,7 @@ fi
 if  helm  get  manifest  --namespace "${NAMESPACE}"  rancher  &>/dev/null; then
   HELM_ACTION="upgrade"
 fi
+# https://github.com/rancher/rancher/blob/release/v2.8/chart/values.yaml
 helm  "${HELM_ACTION}"  rancher  rancher/rancher \
     ${VERSION[@]} \
     --namespace "${NAMESPACE}" \
