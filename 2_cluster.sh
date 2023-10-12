@@ -33,7 +33,7 @@ if  !  hcloud  firewall  list  --output noheader  --output columns=name | grep "
     --name "${FIREWALL_NAME}" \
     --label "${NETWORK_SELECTOR}"
 fi
-if [ "${CLUSTER_NAME}" != "$(hcloud  firewall  describe "${FIREWALL_NAME}"  -o json | jq -r '.labels.cluster' )" ]; then
+if !  hcloud  firewall  describe  "${FIREWALL_NAME}"  -o json  |  jq -r '.applied_to[].label_selector.selector' | grep "^${NETWORK_SELECTOR}$"; then
   hcloud  firewall  apply-to-resource  "${FIREWALL_NAME}" \
     --type label_selector \
     --label-selector  "${NETWORK_SELECTOR}"
@@ -149,13 +149,6 @@ for (( NR=0; NR<${#CONTROL_NAMES[@]}; NR++ )); do
       --config-patch-control-plane "@${SCRIPT_DIR}/deploy/talos-patch-control.yaml" \
       --config-patch "[
                         {
-                          \"op\": \"add\",
-                          \"path\": \"/cluster/network\",
-                          \"value\": {
-                                       \"podSubnets\": [ \"${NETWORK_POD_SUBNET}\" ]
-                                     }
-                        },
-                        {
                           \"op\": \"replace\",
                           \"path\": \"/machine/network/hostname\",
                           \"value\": \"${NODE_NAME}\"
@@ -174,6 +167,18 @@ for (( NR=0; NR<${#CONTROL_NAMES[@]}; NR++ )); do
                           \"value\": {
                                        \"validSubnets\": [ \"${NETWORK_SUBNET}\" ]
                                      }
+                        },
+                        {
+                          \"op\": \"add\",
+                          \"path\": \"/cluster/network\",
+                          \"value\": {
+                                       \"podSubnets\": [ \"${NETWORK_POD_SUBNET}\" ]
+                                     }
+                        },
+                        {
+                          \"op\": \"add\",
+                          \"path\": \"/cluster/etcd\",
+                          \"value\": { advertisedSubnets: [ \"${NETWORK_SUBNET}\" ] }
                         }
                       ]" \
       --kubernetes-version "${KUBE_VERSION}" \
@@ -295,11 +300,11 @@ getNodeIps
 for NODE_NAME in "${NODE_NAMES[@]}"; do
   _PUBLIC_IPV4="$(getNodePublicIpv4 "${NODE_NAME}")"
   _CIDR="${_PUBLIC_IPV4}/32"
-  for _PROTOCOL in tcp udp; do
-    if ! hcloud firewall describe "${FIREWALL_NAME}" -o json | jq -e ".rules[] | select(.protocol==\"${_PROTOCOL}\" and .source_ips==[\"${_CIDR}\"])"; then
-      hcloud firewall add-rule "${FIREWALL_NAME}" --source-ips "${_CIDR}"  --port any  --protocol "${_PROTOCOL}"  --direction in  --description "${NODE_NAME}"
-    fi
-  done
+  _PROTOCOL="udp"
+  _PORT="1024-8472" # Opening UDP 1024-8472 works
+  if ! hcloud firewall describe "${FIREWALL_NAME}" -o json | jq -e ".rules[] | select(.protocol==\"${_PROTOCOL}\" and .source_ips==[\"${_CIDR}\"] and .port==\"${_PORT}\")"; then
+    hcloud firewall add-rule "${FIREWALL_NAME}" --source-ips "${_CIDR}"  --port "${_PORT}"  --protocol "${_PROTOCOL}"  --direction in  --description "${NODE_NAME}"
+  fi
 done
 
 #for NODE_IP in "${NODE_IPS[@]}"; do

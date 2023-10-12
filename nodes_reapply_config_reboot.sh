@@ -9,6 +9,8 @@ setContext
 getNodeIps
 getLoadBalancerIps
 
+set  -o xtrace
+
 for NODE_NAME in "${NODE_NAMES[@]}"; do
   CONFIG_FILE="${SCRIPT_DIR}/node_${NODE_NAME}.yaml"
   showProgress "Apply config to ${NODE_NAME}"
