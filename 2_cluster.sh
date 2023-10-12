@@ -301,7 +301,7 @@ for NODE_NAME in "${NODE_NAMES[@]}"; do
   _PUBLIC_IPV4="$(getNodePublicIpv4 "${NODE_NAME}")"
   _CIDR="${_PUBLIC_IPV4}/32"
   _PROTOCOL="udp"
-  _PORT="1024-8472" # Opening UDP 1024-8472 works
+  _PORT="4789" # Flannel VXLAN
   if ! hcloud firewall describe "${FIREWALL_NAME}" -o json | jq -e ".rules[] | select(.protocol==\"${_PROTOCOL}\" and .source_ips==[\"${_CIDR}\"] and .port==\"${_PORT}\")"; then
     hcloud firewall add-rule "${FIREWALL_NAME}" --source-ips "${_CIDR}"  --port "${_PORT}"  --protocol "${_PROTOCOL}"  --direction in  --description "${NODE_NAME}"
   fi
