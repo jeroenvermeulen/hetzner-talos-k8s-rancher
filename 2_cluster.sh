@@ -366,7 +366,7 @@ showProgress "Install Local Path Storage"
 
 kubectl apply \
   -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.24/deploy/local-path-storage.yaml \
-  -f deploy/local-path-storage-ns.yaml
+  -f "${DEPLOY_DIR}/local-path-storage-ns.yaml"
 
 showProgress "Install Hetzner Cloud CSI using Helm"
 
