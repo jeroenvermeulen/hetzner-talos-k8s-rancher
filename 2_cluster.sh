@@ -368,6 +368,8 @@ kubectl apply \
   -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.24/deploy/local-path-storage.yaml \
   -f "${DEPLOY_DIR}/local-path-storage-ns.yaml"
 
+kubectl  patch  storageclass  local-path  -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+
 showProgress "Install Hetzner Cloud CSI using Helm"
 
 HELM_ACTION="install"
