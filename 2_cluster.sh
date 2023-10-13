@@ -146,7 +146,7 @@ for (( NR=0; NR<${#CONTROL_NAMES[@]}; NR++ )); do
     talosctl  gen  config  "${TALOS_CONTEXT}"  "https://${CONTROL_LB_IPV4}:6443" \
       --with-secrets "${TALOS_SECRETS}" \
       --config-patch "@${SCRIPT_DIR}/deploy/talos-patch.yaml" \
-      --config-patch-control-plane "@${SCRIPT_DIR}/deploy/talos-patch-control.yaml" \
+      --config-patch "@${SCRIPT_DIR}/deploy/talos-patch-control.yaml" \
       --config-patch "[
                         {
                           \"op\": \"replace\",
@@ -170,15 +170,8 @@ for (( NR=0; NR<${#CONTROL_NAMES[@]}; NR++ )); do
                         },
                         {
                           \"op\": \"add\",
-                          \"path\": \"/cluster/network\",
-                          \"value\": {
-                                       \"podSubnets\": [ \"${NETWORK_POD_SUBNET}\" ]
-                                     }
-                        },
-                        {
-                          \"op\": \"add\",
-                          \"path\": \"/cluster/etcd\",
-                          \"value\": { advertisedSubnets: [ \"${NETWORK_SUBNET}\" ] }
+                          \"path\": \"/cluster/etcd/advertisedSubnets\",
+                          \"value\": [ \"${NETWORK_SUBNET}\" ]
                         }
                       ]" \
       --kubernetes-version "${KUBE_VERSION}" \
@@ -230,13 +223,6 @@ for (( NR=0; NR<${#WORKER_NAMES[@]}; NR++ )); do
       --with-secrets "${TALOS_SECRETS}" \
       --config-patch "@${SCRIPT_DIR}/deploy/talos-patch.yaml" \
       --config-patch "[
-                        {
-                          \"op\": \"add\",
-                          \"path\": \"/cluster/network\",
-                          \"value\": {
-                                       \"podSubnets\": [ \"${NETWORK_POD_SUBNET}\" ]
-                                     }
-                        },
                         {
                           \"op\": \"replace\",
                           \"path\": \"/machine/network/hostname\",
@@ -297,19 +283,6 @@ done
 
 getNodeIps
 
-for NODE_NAME in "${NODE_NAMES[@]}"; do
-  _PUBLIC_IPV4="$(getNodePublicIpv4 "${NODE_NAME}")"
-  _CIDR="${_PUBLIC_IPV4}/32"
-  _PROTOCOL="udp"
-  _PORT="4789" # Flannel VXLAN
-  if ! hcloud firewall describe "${FIREWALL_NAME}" -o json | jq -e ".rules[] | select(.protocol==\"${_PROTOCOL}\" and .source_ips==[\"${_CIDR}\"] and .port==\"${_PORT}\")"; then
-    hcloud firewall add-rule "${FIREWALL_NAME}" --source-ips "${_CIDR}"  --port "${_PORT}"  --protocol "${_PROTOCOL}"  --direction in  --description "${NODE_NAME}"
-  fi
-done
-
-#for NODE_IP in "${NODE_IPS[@]}"; do
-#  waitForTcpPort  "${NODE_IP}"  50000
-#done
 waitForTcpPort  "${CONTROL_LB_IPV4}"  50000
 
 showProgress "Bootstrap Talos cluster"
@@ -325,9 +298,6 @@ if [ -n "${USER_KUBECONFIG}" ]; then
 fi
 talosctl  kubeconfig  --force  "${KUBECONFIG}"
 
-#for CONTROL_IP in "${CONTROL_IPS[@]}"; do
-#  waitForTcpPort  "${CONTROL_IP}"  6443
-#done
 waitForTcpPort  "${CONTROL_LB_IPV4}"  6443
 
 showProgress "Wait for first control node to become Ready"
@@ -347,6 +317,10 @@ talosctl  health \
   --control-plane-nodes "${CONTROL_IPS_COMMA}" \
   --worker-nodes "${WORKER_IPS_COMMA}" \
   --wait-timeout 60m
+
+showProgress "Patch Flannel to use Private LAN"
+
+kubectl patch -n kube-system daemonsets/kube-flannel --type=json --patch '[{"op": "replace", "path": "/spec/template/spec/containers/0/args", "value":["--ip-masq","--kube-subnet-mgr","--iface=eth1"]}]'
 
 showProgress "Patch nodes to add providerID"
 
@@ -386,30 +360,7 @@ helm  repo  update  hcloud
 helm  "${HELM_ACTION}"  hccm  hcloud/hcloud-cloud-controller-manager \
  --namespace "${NAMESPACE}" \
  --values "${SCRIPT_DIR}/deploy/hcloud-ccm-values.yaml" \
- --set "env.HCLOUD_LOAD_BALANCERS_LOCATION.value=${DEFAULT_LB_LOCATION}" \
- --set "networking.clusterCIDR=${NETWORK_POD_SUBNET}"
-
-#showProgress "Install Cilium using Helm"
-#
-#HELM_ACTION="install"
-#NAMESPACE="kube-system"
-#if  helm  get  manifest  --namespace "${NAMESPACE}"  cilium  &>/dev/null; then
-#  HELM_ACTION="upgrade"
-#fi
-#
-#helm  repo  add  cilium https://helm.cilium.io/
-#helm  repo  update  cilium
-#helm "${HELM_ACTION}" \
-#    cilium \
-#    cilium/cilium \
-#    --namespace "${NAMESPACE}" \
-#    --set ipam.mode=kubernetes \
-#    --set=kubeProxyReplacement=disabled \
-#    --set=securityContext.capabilities.ciliumAgent="{CHOWN,KILL,NET_ADMIN,NET_RAW,IPC_LOCK,SYS_ADMIN,SYS_RESOURCE,DAC_OVERRIDE,FOWNER,SETGID,SETUID}" \
-#    --set=securityContext.capabilities.cleanCiliumState="{NET_ADMIN,SYS_ADMIN,SYS_RESOURCE}" \
-#    --set=cgroup.autoMount.enabled=false \
-#    --set=cgroup.hostRoot=/sys/fs/cgroup
-## https://github.com/cilium/cilium/blob/v1.14.2/install/kubernetes/cilium/values.yaml
+ --set "env.HCLOUD_LOAD_BALANCERS_LOCATION.value=${DEFAULT_LB_LOCATION}"
 
 showProgress "Install Local Path Storage"
 

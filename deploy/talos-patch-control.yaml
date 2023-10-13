@@ -5,3 +5,5 @@ machine:
     # These are deprecated but make Rancher happy
     node-role.kubernetes.io/etcd: true
     node-role.kubernetes.io/master: true
+cluster:
+  etcd: {}
