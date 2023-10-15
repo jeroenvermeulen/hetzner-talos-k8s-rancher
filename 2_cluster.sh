@@ -39,7 +39,7 @@ if [ -z "${TARGET_JSON}" ]; then
       --use-private-ip
 fi
 
-for PORT in 6443 50000 50001; do
+for PORT in 6443 50000; do
   SERVICE_JSON=$( hcloud load-balancer describe "${CONTROL_LB_NAME}" --output json \
                   | jq ".services[] | select(.listen_port == ${PORT})" )
   if [ -z "${SERVICE_JSON}" ]; then
@@ -125,11 +125,13 @@ for (( NR=0; NR<${#CONTROL_NAMES[@]}; NR++ )); do
                         },
                         {
                           \"op\": \"add\",
-                          \"path\": \"/machine/nodeLabels\",
-                          \"value\": {
-                                       \"node.kubernetes.io/instance-type\": \"${CONTROL_TYPE}\",
-                                       \"topology.kubernetes.io/zone\": \"${CONTROL_LOCATION[${NR}]}\"
-                                     }
+                          \"path\": \"/machine/nodeLabels/node.kubernetes.io~1instance-type\",
+                          \"value\": \"${CONTROL_TYPE}\"
+                        },
+                        {
+                          \"op\": \"add\",
+                          \"path\": \"/machine/nodeLabels/topology.kubernetes.io~1zone\",
+                          \"value\": \"${CONTROL_LOCATION[${NR}]}\"
                         }
                       ]" \
       --kubernetes-version "${KUBE_VERSION}" \
@@ -143,7 +145,7 @@ for (( NR=0; NR<${#CONTROL_NAMES[@]}; NR++ )); do
     talosctl  apply-config \
       --file "${CONFIG_FILE}" \
       --endpoints "${CONTROL_LB_IPV4}" \
-      --nodes "$( getNodePrivateIp "${NODE_NAME}" )" || echo "Warning: Apply failed"
+      --nodes "$( getNodePublicIpv4 "${NODE_NAME}" )" || echo "Warning: Apply failed"
     continue
   fi
   hcloud  server  create \
@@ -207,7 +209,7 @@ for (( NR=0; NR<${#WORKER_NAMES[@]}; NR++ )); do
     talosctl  apply-config \
       --file "${CONFIG_FILE}" \
       --endpoints "${CONTROL_LB_IPV4}" \
-      --nodes "$( getNodePrivateIp "${NODE_NAME}" )" || echo "Warning: Apply failed"
+      --nodes "$( getNodePublicIpv4 "${NODE_NAME}" )" || echo "Warning: Apply failed"
     continue
   fi
   hcloud  server  create \
@@ -234,15 +236,23 @@ done
 
 getNodeIps
 
+showProgress "Open firewall ports"
+
+# The nodes looped over here are the sources of the traffic. Ports are opened on all nodes by the firewall.
 for NODE_NAME in "${NODE_NAMES[@]}"; do
   _PUBLIC_IPV4="$(getNodePublicIpv4 "${NODE_NAME}")"
-  _CIDR="${_PUBLIC_IPV4}/32"
-  _PROTOCOL="udp"
-  _PORT="4789" # Flannel VXLAN
-  if ! hcloud firewall describe "${FIREWALL_NAME}" -o json | jq -e ".rules[] | select(.protocol==\"${_PROTOCOL}\" and .source_ips==[\"${_CIDR}\"] and .port==\"${_PORT}\")"; then
-    hcloud firewall add-rule "${FIREWALL_NAME}" --source-ips "${_CIDR}"  --port "${_PORT}"  --protocol "${_PROTOCOL}"  --direction in  --description "${NODE_NAME}"
-  fi
+  #openFirewallPorts  "${_PUBLIC_IPV4}/32"  "udp"  4789  4789  "Flannel VXLAN from ${NODE_NAME}"
+  #openFirewallPorts  "${_PUBLIC_IPV4}/32"  "tcp"  50000  50001  "Talos apd+trustd from ${NODE_NAME}"
+  openFirewallPorts  "${_PUBLIC_IPV4}/32"  "udp"  1  65535  "All UDP from ${NODE_NAME}"
+  openFirewallPorts  "${_PUBLIC_IPV4}/32"  "tcp"  1  65535  "All TCP from ${NODE_NAME}"
 done
+#for _NODE_NAME in "${CONTROL_NAMES[@]}"; do
+#  _PUBLIC_IPV4="$(getNodePublicIpv4 "${NODE_NAME}")"
+#  openFirewallPorts  "${_PUBLIC_IPV4}/32"  "tcp"  2380  2380  "Talos etcd from ${NODE_NAME}"
+#done
+openFirewallPorts  "${CONTROL_LB_IPV4}/32"  "tcp"  6443  6443  "Kubernetes API from LB ${CONTROL_LB_NAME}"
+openFirewallPorts  "${CONTROL_LB_IPV4}/32"  "tcp"  50000  50000  "Talos apid from LB ${CONTROL_LB_NAME}"
+openFirewallPorts  "${WORKER_LB_IPV4}/32"  "tcp"  30000  32767  "NodePorts from LB ${WORKER_LB_NAME}"
 
 waitForTcpPort  "${CONTROL_LB_IPV4}"  50000
 
@@ -321,11 +331,7 @@ helm  "${HELM_ACTION}"  hccm  hcloud/hcloud-cloud-controller-manager \
 
 showProgress "Install Local Path Storage"
 
-kubectl apply \
-  -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.24/deploy/local-path-storage.yaml \
-  -f "${DEPLOY_DIR}/local-path-storage-ns.yaml"
-
-kubectl  patch  storageclass  local-path  -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+kubectl  apply  -f "${DEPLOY_DIR}/local-path-storage.yaml"
 
 showProgress "Install Hetzner Cloud Container Storage Interface (CSI) using Helm"
 

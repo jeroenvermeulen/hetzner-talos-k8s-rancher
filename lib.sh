@@ -66,12 +66,12 @@ function getNodeIps() {
   WORKER_IPS=()
   local _NODE_NAME
   for _NODE_NAME in "${CONTROL_NAMES[@]}"; do
-    NODE_IPS+=("$( getNodePrivateIp "${_NODE_NAME}" )")
-    CONTROL_IPS+=("$( getNodePrivateIp "${_NODE_NAME}" )")
+    NODE_IPS+=("$( getNodePublicIpv4 "${_NODE_NAME}" )")
+    CONTROL_IPS+=("$( getNodePublicIpv4 "${_NODE_NAME}" )")
   done
   for _NODE_NAME in "${WORKER_NAMES[@]}"; do
-    NODE_IPS+=("$( getNodePrivateIp "${_NODE_NAME}" )")
-    WORKER_IPS+=("$( getNodePrivateIp "${_NODE_NAME}" )")
+    NODE_IPS+=("$( getNodePublicIpv4 "${_NODE_NAME}" )")
+    WORKER_IPS+=("$( getNodePublicIpv4 "${_NODE_NAME}" )")
   done
   NODE_IPS_COMMA="$( IFS=','; echo "${NODE_IPS[*]}" )"
   CONTROL_IPS_COMMA="$( IFS=','; echo "${CONTROL_IPS[*]}" )"
@@ -95,6 +95,21 @@ function waitForTcpPort() {
     fi
     sleep 5
   done
+}
+
+function openFirewallPorts() {
+  local _SOURCE_CIDR="${1}"
+  local _PROTOCOL="$(echo "${2}" | tr '[:upper:]' '[:lower:]')"
+  local _PORT_START="${3}"
+  local _PORT_END="${4}"
+  local _DESCRIPTION="${5}"
+  local _PORT="${_PORT_START}-${_PORT_END}"
+  if [ "${_PORT_START}" -eq "${_PORT_END}" ]; then
+    _PORT="${_PORT_START}"
+  fi
+  if ! hcloud firewall describe "${FIREWALL_NAME}" -o json | jq -e ".rules[] | select(.protocol==\"${_PROTOCOL}\" and .source_ips==[\"${_SOURCE_CIDR}\"] and .port==\"${_PORT}\")"; then
+    hcloud firewall add-rule "${FIREWALL_NAME}" --source-ips "${_SOURCE_CIDR}"  --port "${_PORT}"  --protocol "${_PROTOCOL}"  --direction in  --description "${_DESCRIPTION}"
+  fi
 }
 
 trap 'set +o xtrace; onError' ERR SIGINT SIGTERM
