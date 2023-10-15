@@ -31,12 +31,6 @@ if  ! hcloud load-balancer list --output noheader  --output columns=name | grep 
     --type "$( echo ${CONTROL_LB_TYPE} | tr '[:upper:]' '[:lower:]' )"
 fi
 
-if  [ "${NETWORK_ID}" != "$(hcloud load-balancer describe "${CONTROL_LB_NAME}" --output json | jq -r '.private_net[0].network')" ]; then
-  hcloud  load-balancer  attach-to-network \
-    --network "${NETWORK_NAME}" \
-    "${CONTROL_LB_NAME}"
-fi
-
 TARGET_JSON=$( hcloud load-balancer describe "${CONTROL_LB_NAME}" --output json \
                | jq ".targets[] | select(.label_selector.selector == \"${CONTROL_SELECTOR}\")" )
 if [ -z "${TARGET_JSON}" ]; then
@@ -64,12 +58,6 @@ if  ! hcloud load-balancer list --output noheader  --output columns=name | grep 
     --label "${WORKER_SELECTOR}" \
     --location "${WORKER_LB_LOCATION}" \
     --type "$( echo ${WORKER_LB_TYPE} | tr '[:upper:]' '[:lower:]' )"
-fi
-
-if  [ "${NETWORK_ID}" != "$(hcloud load-balancer describe "${WORKER_LB_NAME}" --output json | jq -r '.private_net[].network')" ]; then
-  hcloud  load-balancer  attach-to-network \
-    --network "${NETWORK_NAME}" \
-    "${WORKER_LB_NAME}"
 fi
 
 # Traefik will add targets + services to worker load balancer.
