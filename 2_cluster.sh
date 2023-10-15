@@ -158,7 +158,7 @@ for (( NR=0; NR<${#CONTROL_NAMES[@]}; NR++ )); do
                           \"path\": \"/machine/nodeLabels\",
                           \"value\": {
                                        \"node.kubernetes.io/instance-type\": \"${CONTROL_TYPE}\",
-                                       \"topology.kubernetes.io/zone\": \"${CONTROL_LOCATION[${NR}]\"}\"
+                                       \"topology.kubernetes.io/zone\": \"${CONTROL_LOCATION[${NR}]}\"
                                      }
                         },
                         {
@@ -233,7 +233,7 @@ for (( NR=0; NR<${#WORKER_NAMES[@]}; NR++ )); do
                           \"path\": \"/machine/nodeLabels\",
                           \"value\": {
                                        \"node.kubernetes.io/instance-type\": \"${WORKER_TYPE}\",
-                                       \"topology.kubernetes.io/zone\": \"${WORKER_LOCATION[${NR}]\"}\"
+                                       \"topology.kubernetes.io/zone\": \"${WORKER_LOCATION[${NR}]}\"
                                      }
                         },
                         {
@@ -283,6 +283,16 @@ done
 
 getNodeIps
 
+for NODE_NAME in "${NODE_NAMES[@]}"; do
+  _PUBLIC_IPV4="$(getNodePublicIpv4 "${NODE_NAME}")"
+  _CIDR="${_PUBLIC_IPV4}/32"
+  _PROTOCOL="udp"
+  _PORT="4789" # Flannel VXLAN
+  if ! hcloud firewall describe "${FIREWALL_NAME}" -o json | jq -e ".rules[] | select(.protocol==\"${_PROTOCOL}\" and .source_ips==[\"${_CIDR}\"] and .port==\"${_PORT}\")"; then
+    hcloud firewall add-rule "${FIREWALL_NAME}" --source-ips "${_CIDR}"  --port "${_PORT}"  --protocol "${_PROTOCOL}"  --direction in  --description "${NODE_NAME}"
+  fi
+done
+
 waitForTcpPort  "${CONTROL_LB_IPV4}"  50000
 
 showProgress "Bootstrap Talos cluster"
@@ -320,7 +330,7 @@ talosctl  health \
 
 showProgress "Patch Flannel to use Private LAN"
 
-kubectl patch -n kube-system daemonsets/kube-flannel --type=json --patch '[{"op": "replace", "path": "/spec/template/spec/containers/0/args", "value":["--ip-masq","--kube-subnet-mgr","--iface=eth1"]}]'
+# kubectl patch -n kube-system daemonsets/kube-flannel --type=json --patch '[{"op": "replace", "path": "/spec/template/spec/containers/0/args", "value":["--ip-masq","--kube-subnet-mgr","--iface=eth1"]}]'
 
 showProgress "Patch nodes to add providerID"
 
