@@ -11,8 +11,8 @@ env:
       fieldRef:
         fieldPath: spec.nodeName
   HCLOUD_LOAD_BALANCERS_USE_PRIVATE_IP:
-    value: "true"
+    value: "false"
 networking:
-  enabled: true
+  enabled: false
 metrics:
   enabled: true

@@ -8,24 +8,6 @@ showNotice "==== Executing $(basename "$0") ===="
 set  -o xtrace
 setContext
 
-showProgress "Private Network"
-if  !  hcloud  network  list  --output noheader  --output columns=name | grep "^${NETWORK_NAME}$"; then
-  hcloud  network  create \
-    --name "${NETWORK_NAME}" \
-    --label "${NETWORK_SELECTOR}" \
-    --ip-range "${NETWORK_RANGE}"
-fi
-
-showProgress "Subnet"
-
-if  !  hcloud network describe "${NETWORK_NAME}" --output json | jq -r '.subnets[0].ip_range' | grep "^${NETWORK_SUBNET}$"; then
-  hcloud  network  add-subnet  "${NETWORK_NAME}" \
-    --type server \
-    --network-zone "${NETWORK_ZONE}" \
-    --ip-range "${NETWORK_SUBNET}"
-fi
-NETWORK_ID=$( hcloud network list --selector "${NETWORK_SELECTOR}"  --output noheader  --output columns=id | head -n1 )
-
 showProgress "Firewall"
 
 if  !  hcloud  firewall  list  --output noheader  --output columns=name | grep "^${FIREWALL_NAME}$"; then
@@ -160,18 +142,6 @@ for (( NR=0; NR<${#CONTROL_NAMES[@]}; NR++ )); do
                                        \"node.kubernetes.io/instance-type\": \"${CONTROL_TYPE}\",
                                        \"topology.kubernetes.io/zone\": \"${CONTROL_LOCATION[${NR}]}\"
                                      }
-                        },
-                        {
-                          \"op\": \"add\",
-                          \"path\": \"/machine/kubelet/nodeIP\",
-                          \"value\": {
-                                       \"validSubnets\": [ \"${NETWORK_SUBNET}\" ]
-                                     }
-                        },
-                        {
-                          \"op\": \"add\",
-                          \"path\": \"/cluster/etcd/advertisedSubnets\",
-                          \"value\": [ \"${NETWORK_SUBNET}\" ]
                         }
                       ]" \
       --kubernetes-version "${KUBE_VERSION}" \
@@ -234,13 +204,6 @@ for (( NR=0; NR<${#WORKER_NAMES[@]}; NR++ )); do
                           \"value\": {
                                        \"node.kubernetes.io/instance-type\": \"${WORKER_TYPE}\",
                                        \"topology.kubernetes.io/zone\": \"${WORKER_LOCATION[${NR}]}\"
-                                     }
-                        },
-                        {
-                          \"op\": \"add\",
-                          \"path\": \"/machine/kubelet/nodeIP\",
-                          \"value\": {
-                                       \"validSubnets\": [ \"${NETWORK_SUBNET}\" ]
                                      }
                         }
                       ]" \
@@ -328,10 +291,6 @@ talosctl  health \
   --worker-nodes "${WORKER_IPS_COMMA}" \
   --wait-timeout 60m
 
-showProgress "Patch Flannel to use Private LAN"
-
-# kubectl patch -n kube-system daemonsets/kube-flannel --type=json --patch '[{"op": "replace", "path": "/spec/template/spec/containers/0/args", "value":["--ip-masq","--kube-subnet-mgr","--iface=eth1"]}]'
-
 showProgress "Patch nodes to add providerID"
 
 for NODE_NAME in "${NODE_NAMES[@]}"; do
@@ -380,7 +339,7 @@ kubectl apply \
 
 kubectl  patch  storageclass  local-path  -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
 
-showProgress "Install Hetzner Cloud CSI using Helm"
+showProgress "Install Hetzner Cloud Container Storage Interface (CSI) using Helm"
 
 HELM_ACTION="install"
 NAMESPACE="kube-system"
