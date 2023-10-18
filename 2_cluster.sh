@@ -246,11 +246,6 @@ showProgress "Open firewall ports"
 # The nodes looped over here are the sources of the traffic. Ports are opened on all nodes by the firewall.
 for NODE_NAME in "${NODE_NAMES[@]}"; do
   _PUBLIC_IPV4="$(getNodePublicIpv4 "${NODE_NAME}")"
-  #openFirewallPorts  "${_PUBLIC_IPV4}/32"  "udp"  4789  4789  "Flannel VXLAN from ${NODE_NAME}"
-  #openFirewallPorts  "${_PUBLIC_IPV4}/32"  "tcp"  50000  50001  "Talos apid+trustd from ${NODE_NAME}"
-  #openFirewallPorts  "${_PUBLIC_IPV4}/32"  "udp"  1  65535  "All UDP from ${NODE_NAME}"
-  #openFirewallPorts  "${_PUBLIC_IPV4}/32"  "tcp"  1  65535  "All TCP from ${NODE_NAME}"
-  #openFirewallPorts  "${_PUBLIC_IPV4}/32"  "udp"  50001  50001  "Talos trustd from ${NODE_NAME}"
   openFirewallPorts  "${_PUBLIC_IPV4}/32"  "udp"  51820  51820  "KubeSpan WireGuard from ${NODE_NAME}"
 done
 for NODE_NAME in "${CONTROL_NAMES[@]}"; do
