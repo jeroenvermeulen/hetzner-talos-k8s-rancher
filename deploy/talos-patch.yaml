@@ -8,6 +8,13 @@ machine:
     kubePrism:
       enabled: true
       port: 7445
+  network:
+    kubespan:
+      enabled: true
+      advertiseKubernetesNetworks: true
+      filters:
+        endpoints:
+          - 0.0.0.0/0 # IPv4 only
   kubelet:
     registerWithFQDN: true
     extraArgs:

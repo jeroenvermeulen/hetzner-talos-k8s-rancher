@@ -11,9 +11,11 @@ getNodeIps
 
 for NODE_IPV4 in "${NODE_IPS[@]}"; do
   showProgress "Reset node ${NODE_IPV4}"
+  # To use the node itself as endpoint you need direct access to the Talos API port 50000
   talosctl  reset \
     --graceful=false \
-    --system-labels-to-wipe STATE,EPHEMERAL \
+    --system-labels-to-wipe STATE \
+    --system-labels-to-wipe EPHEMERAL \
     --reboot \
     --timeout 20s \
     --endpoints "${NODE_IPV4}" \
