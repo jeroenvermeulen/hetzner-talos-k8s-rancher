@@ -1,6 +1,6 @@
 function showNotice() {
   (
-    set +o xtrace;
+    { set +o xtrace; } 2>/dev/null
     IFS=' '
     printf "\n\e[95m%s\e[0m\n\n" "$*"
   )
@@ -8,7 +8,7 @@ function showNotice() {
 
 function showProgress() {
   (
-    set +o xtrace;
+    { set +o xtrace; } 2>/dev/null
     IFS=' '
     printf "\n\e[94m%s\e[0m\n\n" "$*"
   )
@@ -16,7 +16,7 @@ function showProgress() {
 
 function showWarning() {
   (
-    set +o xtrace;
+    { set +o xtrace; } 2>/dev/null
     IFS=' '
     printf "\n\e[33m%s\e[0m\n\n" "$*"
   )
@@ -24,7 +24,7 @@ function showWarning() {
 
 function showError() {
   (
-    set +o xtrace;
+    { set +o xtrace; } 2>/dev/null
     IFS=' '
     printf "\n\e[31m%s\e[0m\n\n" "$*" | tr '\n' "\n"
   )
@@ -112,7 +112,7 @@ function openFirewallPorts() {
   fi
 }
 
-trap 'set +o xtrace; onError' ERR SIGINT SIGTERM
+trap '{ set +o xtrace; } 2>/dev/null; onError' ERR SIGINT SIGTERM
 
 if [ -z "${SCRIPT_DIR+x}" ] || [ -z "${SCRIPT_DIR}" ]; then
   showError "Environment variable 'SCRIPT_DIR' is missing or empty."
