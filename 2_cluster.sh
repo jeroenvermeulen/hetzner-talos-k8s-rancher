@@ -8,18 +8,18 @@ showNotice "==== Executing $(basename "$0") ===="
 set  -o xtrace
 setContext
 
-showProgress "Firewall"
-
-if  !  hcloud  firewall  list  --output noheader  --output columns=name | grep "^${FIREWALL_NAME}$"; then
-  hcloud  firewall  create  \
-    --name "${FIREWALL_NAME}" \
-    --label "${NETWORK_SELECTOR}"
-fi
-if !  hcloud  firewall  describe  "${FIREWALL_NAME}"  -o json  |  jq -r '.applied_to[].label_selector.selector' | grep "^${NETWORK_SELECTOR}$"; then
-  hcloud  firewall  apply-to-resource  "${FIREWALL_NAME}" \
-    --type label_selector \
-    --label-selector  "${NETWORK_SELECTOR}"
-fi
+#showProgress "Firewall"
+#
+#if  !  hcloud  firewall  list  --output noheader  --output columns=name | grep "^${FIREWALL_NAME}$"; then
+#  hcloud  firewall  create  \
+#    --name "${FIREWALL_NAME}" \
+#    --label "${CLUSTER_SELECTOR}"
+#fi
+#if !  hcloud  firewall  describe  "${FIREWALL_NAME}"  -o json  |  jq -r '.applied_to[].label_selector.selector' | grep "^${CLUSTER_SELECTOR}$"; then
+#  hcloud  firewall  apply-to-resource  "${FIREWALL_NAME}" \
+#    --type label_selector \
+#    --label-selector  "${CLUSTER_SELECTOR}"
+#fi
 
 showProgress "Control load balancer"
 
@@ -35,8 +35,7 @@ TARGET_JSON=$( hcloud load-balancer describe "${CONTROL_LB_NAME}" --output json 
                | jq ".targets[] | select(.label_selector.selector == \"${CONTROL_SELECTOR}\")" )
 if [ -z "${TARGET_JSON}" ]; then
   hcloud  load-balancer  add-target  "${CONTROL_LB_NAME}" \
-      --label-selector "${CONTROL_SELECTOR}" \
-      --use-private-ip
+      --label-selector "${CONTROL_SELECTOR}"
 fi
 
 for PORT in 6443 50000; do
@@ -114,7 +113,9 @@ for (( NR=0; NR<${#CONTROL_NAMES[@]}; NR++ )); do
   (
     umask 0077
     talosctl  gen  config  "${TALOS_CONTEXT}"  "https://${CONTROL_LB_IPV4}:6443" \
-      --with-secrets "${TALOS_SECRETS}" \
+      --with-secrets="${TALOS_SECRETS}" \
+      --with-docs=false \
+      --with-examples=false \
       --config-patch "@${SCRIPT_DIR}/deploy/talos-patch.yaml" \
       --config-patch "@${SCRIPT_DIR}/deploy/talos-patch-control.yaml" \
       --config-patch "[
@@ -134,7 +135,7 @@ for (( NR=0; NR<${#CONTROL_NAMES[@]}; NR++ )); do
                           \"value\": \"${CONTROL_LOCATION[${NR}]}\"
                         }
                       ]" \
-      --kubernetes-version "${KUBE_VERSION}" \
+      --kubernetes-version="${KUBE_VERSION}" \
       --additional-sans "${CONTROL_LB_IPV4},${CONTROL_LB_NAME}" \
       --output-types controlplane \
       --output "${CONFIG_FILE}" \
@@ -142,15 +143,15 @@ for (( NR=0; NR<${#CONTROL_NAMES[@]}; NR++ )); do
   )
   if  hcloud server list --output noheader  --output columns=name | grep "^${NODE_NAME}$"; then
     showProgress "Apply config to ${NODE_NAME}"
+    NODE_IPV4="$( getNodePublicIpv4 "${NODE_NAME}" )"
     talosctl  apply-config \
       --file "${CONFIG_FILE}" \
-      --endpoints "${CONTROL_LB_IPV4}" \
-      --nodes "$( getNodePublicIpv4 "${NODE_NAME}" )" || echo "Warning: Apply failed"
+      --endpoints "${NODE_IPV4}" \
+      --nodes "${NODE_IPV4}" || echo "Warning: Apply failed"
     continue
   fi
   hcloud  server  create \
       --name "${NODE_NAME}" \
-      --network "${NETWORK_NAME}" \
       --image "${IMAGE_ID}" \
       --type "${CONTROL_TYPE}" \
       --location "${CONTROL_LOCATION[${NR}]}" \
@@ -181,6 +182,8 @@ for (( NR=0; NR<${#WORKER_NAMES[@]}; NR++ )); do
     umask 0077
     talosctl  gen  config  "${TALOS_CONTEXT}"  "https://${CONTROL_LB_IPV4}:6443" \
       --with-secrets "${TALOS_SECRETS}" \
+      --with-docs=false \
+      --with-examples=false \
       --config-patch "@${SCRIPT_DIR}/deploy/talos-patch.yaml" \
       --config-patch "[
                         {
@@ -198,7 +201,7 @@ for (( NR=0; NR<${#WORKER_NAMES[@]}; NR++ )); do
                         }
                       ]" \
       ${VOLUME_PATCH[@]} \
-      --kubernetes-version "${KUBE_VERSION}" \
+      --kubernetes-version="${KUBE_VERSION}" \
       --additional-sans "${CONTROL_LB_IPV4},${CONTROL_LB_NAME}" \
       --output-types worker \
       --output "${CONFIG_FILE}" \
@@ -206,15 +209,15 @@ for (( NR=0; NR<${#WORKER_NAMES[@]}; NR++ )); do
   )
   if  hcloud server list --output noheader  --output columns=name | grep "^${NODE_NAME}$"; then
     showProgress "Apply config to ${NODE_NAME}"
+    NODE_IPV4="$( getNodePublicIpv4 "${NODE_NAME}" )"
     talosctl  apply-config \
       --file "${CONFIG_FILE}" \
-      --endpoints "${CONTROL_LB_IPV4}" \
-      --nodes "$( getNodePublicIpv4 "${NODE_NAME}" )" || echo "Warning: Apply failed"
+      --endpoints "${NODE_IPV4}" \
+      --nodes "${NODE_IPV4}" || echo "Warning: Apply failed"
     continue
   fi
   hcloud  server  create \
       --name "${NODE_NAME}" \
-      --network "${NETWORK_NAME}" \
       --image "${IMAGE_ID}" \
       --type "${WORKER_TYPE}" \
       --location "${WORKER_LOCATION[${NR}]}" \
@@ -236,43 +239,52 @@ done
 
 getNodeIps
 
-showProgress "Open firewall ports"
+#showProgress "Open firewall ports"
+#
+## The nodes looped over here are the sources of the traffic. Ports are opened on all nodes by the firewall.
+#for NODE_NAME in "${NODE_NAMES[@]}"; do
+#  _PUBLIC_IPV4="$(getNodePublicIpv4 "${NODE_NAME}")"
+#  #openFirewallPorts  "${_PUBLIC_IPV4}/32"  "udp"  4789  4789  "Flannel VXLAN from ${NODE_NAME}"
+#  #openFirewallPorts  "${_PUBLIC_IPV4}/32"  "tcp"  50000  50001  "Talos apd+trustd from ${NODE_NAME}"
+#  openFirewallPorts  "${_PUBLIC_IPV4}/32"  "udp"  1  65535  "All UDP from ${NODE_NAME}"
+#  openFirewallPorts  "${_PUBLIC_IPV4}/32"  "tcp"  1  65535  "All TCP from ${NODE_NAME}"
+#done
+##for _NODE_NAME in "${CONTROL_NAMES[@]}"; do
+##  _PUBLIC_IPV4="$(getNodePublicIpv4 "${NODE_NAME}")"
+##  openFirewallPorts  "${_PUBLIC_IPV4}/32"  "tcp"  2380  2380  "Talos etcd from ${NODE_NAME}"
+##done
+#openFirewallPorts  "${CONTROL_LB_IPV4}/32"  "tcp"  6443  6443  "Kubernetes API from LB ${CONTROL_LB_NAME}"
+#openFirewallPorts  "${CONTROL_LB_IPV4}/32"  "tcp"  50000  50000  "Talos apid from LB ${CONTROL_LB_NAME}"
+#openFirewallPorts  "${WORKER_LB_IPV4}/32"  "tcp"  30000  32767  "NodePorts from LB ${WORKER_LB_NAME}"
+#_ENGINEER_IPV4="$( curl --silent --ipv4 ifconfig.io )"
+#openFirewallPorts  "${_ENGINEER_IPV4}/32"  "tcp"  50000  50000  "Talos apid from engineer ${_ENGINEER_IPV4}"
+#
+#hcloud  firewall  update  "${FIREWALL_NAME}"
 
-# The nodes looped over here are the sources of the traffic. Ports are opened on all nodes by the firewall.
+showProgress "Wait all nodes to open port 50000"
+
 for NODE_NAME in "${NODE_NAMES[@]}"; do
   _PUBLIC_IPV4="$(getNodePublicIpv4 "${NODE_NAME}")"
-  #openFirewallPorts  "${_PUBLIC_IPV4}/32"  "udp"  4789  4789  "Flannel VXLAN from ${NODE_NAME}"
-  #openFirewallPorts  "${_PUBLIC_IPV4}/32"  "tcp"  50000  50001  "Talos apd+trustd from ${NODE_NAME}"
-  openFirewallPorts  "${_PUBLIC_IPV4}/32"  "udp"  1  65535  "All UDP from ${NODE_NAME}"
-  openFirewallPorts  "${_PUBLIC_IPV4}/32"  "tcp"  1  65535  "All TCP from ${NODE_NAME}"
+  waitForTcpPort  "${_PUBLIC_IPV4}"  50000
 done
-#for _NODE_NAME in "${CONTROL_NAMES[@]}"; do
-#  _PUBLIC_IPV4="$(getNodePublicIpv4 "${NODE_NAME}")"
-#  openFirewallPorts  "${_PUBLIC_IPV4}/32"  "tcp"  2380  2380  "Talos etcd from ${NODE_NAME}"
-#done
-openFirewallPorts  "${CONTROL_LB_IPV4}/32"  "tcp"  6443  6443  "Kubernetes API from LB ${CONTROL_LB_NAME}"
-openFirewallPorts  "${CONTROL_LB_IPV4}/32"  "tcp"  50000  50000  "Talos apid from LB ${CONTROL_LB_NAME}"
-openFirewallPorts  "${WORKER_LB_IPV4}/32"  "tcp"  30000  32767  "NodePorts from LB ${WORKER_LB_NAME}"
-
-waitForTcpPort  "${CONTROL_LB_IPV4}"  50000
 
 showProgress "Bootstrap Talos cluster"
 
-if ! talosctl  etcd  status  --nodes "${CONTROL_IPS[0]}"  2>/dev/null; then
-  talosctl  bootstrap  --nodes "${CONTROL_IPS[0]}"
+if ! talosctl  etcd  status  --nodes "${CONTROL_IPS[0]}"  --endpoints "${CONTROL_IPS[0]}"  2>/dev/null; then
+  talosctl  bootstrap  --nodes "${CONTROL_IPS[0]}"  --endpoints "${CONTROL_IPS[0]}"
 fi
 
 showProgress "Update kubeconfig for kubectl"
 
 if [ -n "${USER_KUBECONFIG}" ]; then
-  KUBECONFIG="${USER_KUBECONFIG}"  talosctl  kubeconfig  --force
+  KUBECONFIG="${USER_KUBECONFIG}"  talosctl  kubeconfig  --force  --nodes "${CONTROL_IPS[0]}"  --endpoints "${CONTROL_IPS[0]}"
 fi
-talosctl  kubeconfig  --force  "${KUBECONFIG}"
-
-waitForTcpPort  "${CONTROL_LB_IPV4}"  6443
+talosctl  kubeconfig  --force  "${KUBECONFIG}"  --nodes "${CONTROL_IPS[0]}"  --endpoints "${CONTROL_IPS[0]}"
 
 showProgress "Wait for first control node to become Ready"
 
+waitForTcpPort  "${CONTROL_LB_IPV4}"  50000
+waitForTcpPort  "${CONTROL_LB_IPV4}"  6443
 for (( TRY=0; TRY<100; TRY++ )); do
   kubectl get nodes || true
   if  kubectl get nodes --no-headers "${CONTROL1_NAME}" | grep -E "\sReady\s"; then
@@ -283,11 +295,17 @@ done
 
 showProgress "Wait for cluster to become healthy"
 
-talosctl  health \
+for (( TRY=0; TRY<100; TRY++ )); do
+  if talosctl  health \
+      --endpoints "${CONTROL_LB_IPV4}" \
   --nodes "${CONTROL_IPS[0]}" \
   --control-plane-nodes "${CONTROL_IPS_COMMA}" \
   --worker-nodes "${WORKER_IPS_COMMA}" \
   --wait-timeout 60m
+  then
+    break
+  fi
+done
 
 showProgress "Patch nodes to add providerID"
 
@@ -309,8 +327,7 @@ NAMESPACE="kube-system"
 if  ! kubectl get -n "${NAMESPACE}" secret --no-headers -o name | grep -x "secret/hcloud"; then
   HCLOUD_TOKEN="$( grep -A1 "name = '${HCLOUD_CONTEXT}'" ~/.config/hcloud/cli.toml | tail -n1 | cut -d\' -f2 )"
   kubectl  -n kube-system  create  secret  generic  hcloud \
-   --from-literal="token=${HCLOUD_TOKEN}" \
-   --from-literal="network=${NETWORK_NAME}"
+   --from-literal="token=${HCLOUD_TOKEN}"
 fi
 
 showProgress "Install Hetzner Cloud Controller Manager using Helm"
