@@ -8,18 +8,31 @@ showNotice "==== Executing $(basename "$0") ===="
 set  -o xtrace
 setContext
 
-#showProgress "Firewall"
-#
-#if  !  hcloud  firewall  list  --output noheader  --output columns=name | grep "^${FIREWALL_NAME}$"; then
-#  hcloud  firewall  create  \
-#    --name "${FIREWALL_NAME}" \
-#    --label "${CLUSTER_SELECTOR}"
-#fi
-#if !  hcloud  firewall  describe  "${FIREWALL_NAME}"  -o json  |  jq -r '.applied_to[].label_selector.selector' | grep "^${CLUSTER_SELECTOR}$"; then
-#  hcloud  firewall  apply-to-resource  "${FIREWALL_NAME}" \
-#    --type label_selector \
-#    --label-selector  "${CLUSTER_SELECTOR}"
-#fi
+showProgress "Control Firewall"
+
+if  !  hcloud  firewall  list  --output noheader  --output columns=name | grep "^${CONTROL_FIREWALL_NAME}$"; then
+  hcloud  firewall  create  \
+    --name "${CONTROL_FIREWALL_NAME}" \
+    --label "${CLUSTER_SELECTOR}"
+fi
+if !  hcloud  firewall  describe  "${CONTROL_FIREWALL_NAME}"  -o json  |  jq -r '.applied_to[].label_selector.selector' | grep "^${CONTROL_SELECTOR}$"; then
+  hcloud  firewall  apply-to-resource  "${CONTROL_FIREWALL_NAME}" \
+    --type label_selector \
+    --label-selector  "${CONTROL_SELECTOR}"
+fi
+
+showProgress "Worker Firewall"
+
+if  !  hcloud  firewall  list  --output noheader  --output columns=name | grep "^${WORKER_FIREWALL_NAME}$"; then
+  hcloud  firewall  create  \
+    --name "${WORKER_FIREWALL_NAME}" \
+    --label "${CLUSTER_SELECTOR}"
+fi
+if !  hcloud  firewall  describe  "${WORKER_FIREWALL_NAME}"  -o json  |  jq -r '.applied_to[].label_selector.selector' | grep "^${WORKER_SELECTOR}$"; then
+  hcloud  firewall  apply-to-resource  "${WORKER_FIREWALL_NAME}" \
+    --type label_selector \
+    --label-selector  "${WORKER_SELECTOR}"
+fi
 
 showProgress "Control load balancer"
 
@@ -161,8 +174,8 @@ done
 
 showProgress "Start worker nodes"
 
-for (( NR=0; NR<${#WORKER_NAMES[@]}; NR++ )); do
-  NODE_NAME="${WORKER_NAMES[${NR}]}"
+for (( NR=0; NR<${#INT_WORKER_NAMES[@]}; NR++ )); do
+  NODE_NAME="${INT_WORKER_NAMES[${NR}]}"
   CONFIG_FILE="${SCRIPT_DIR}/node_${NODE_NAME}.yaml"
   VOLUME_MOUNT=( '' )
   VOLUME_PATCH=( '' )
@@ -226,7 +239,7 @@ for (( NR=0; NR<${#WORKER_NAMES[@]}; NR++ )); do
       ${VOLUME_MOUNT[@]}  # >/dev/null &   # Enable if you wish to create in parallel
 done
 
-for NODE_NAME in "${NODE_NAMES[@]}"; do
+for NODE_NAME in "${INT_NODE_NAMES[@]}"; do
   showProgress "Wait till ${NODE_NAME} is running"
   for (( TRY=0; TRY<100; TRY++ )); do
     if  hcloud server list --output noheader  --output columns=name,status | grep -E "^${NODE_NAME}\s+running$"; then
@@ -238,32 +251,52 @@ for NODE_NAME in "${NODE_NAMES[@]}"; do
 done
 
 getNodeIps
+ENGINEER_IPV4="$( curl --silent --ipv4 ifconfig.io )"
 
-#showProgress "Open firewall ports"
-#
-## The nodes looped over here are the sources of the traffic. Ports are opened on all nodes by the firewall.
-#for NODE_NAME in "${NODE_NAMES[@]}"; do
-#  _PUBLIC_IPV4="$(getNodePublicIpv4 "${NODE_NAME}")"
-#  #openFirewallPorts  "${_PUBLIC_IPV4}/32"  "udp"  4789  4789  "Flannel VXLAN from ${NODE_NAME}"
-#  #openFirewallPorts  "${_PUBLIC_IPV4}/32"  "tcp"  50000  50001  "Talos apd+trustd from ${NODE_NAME}"
-#  openFirewallPorts  "${_PUBLIC_IPV4}/32"  "udp"  1  65535  "All UDP from ${NODE_NAME}"
-#  openFirewallPorts  "${_PUBLIC_IPV4}/32"  "tcp"  1  65535  "All TCP from ${NODE_NAME}"
-#done
-##for _NODE_NAME in "${CONTROL_NAMES[@]}"; do
-##  _PUBLIC_IPV4="$(getNodePublicIpv4 "${NODE_NAME}")"
-##  openFirewallPorts  "${_PUBLIC_IPV4}/32"  "tcp"  2380  2380  "Talos etcd from ${NODE_NAME}"
-##done
-#openFirewallPorts  "${CONTROL_LB_IPV4}/32"  "tcp"  6443  6443  "Kubernetes API from LB ${CONTROL_LB_NAME}"
-#openFirewallPorts  "${CONTROL_LB_IPV4}/32"  "tcp"  50000  50000  "Talos apid from LB ${CONTROL_LB_NAME}"
-#openFirewallPorts  "${WORKER_LB_IPV4}/32"  "tcp"  30000  32767  "NodePorts from LB ${WORKER_LB_NAME}"
-#_ENGINEER_IPV4="$( curl --silent --ipv4 ifconfig.io )"
-#openFirewallPorts  "${_ENGINEER_IPV4}/32"  "tcp"  50000  50000  "Talos apid from engineer ${_ENGINEER_IPV4}"
-#
-#hcloud  firewall  update  "${FIREWALL_NAME}"
+showProgress "Open ports on Control Firewall"
+# https://kubernetes.io/docs/reference/networking/ports-and-protocols/#node
+# https://www.talos.dev/v1.5/learn-more/talos-network-connectivity/#configuring-network-connectivity
+
+for _SOURCE_NODE in "${NODE_NAMES[@]}"; do
+  ## Traffic from all nodes
+  _SOURCE_IPV4="$(getNodePublicIpv4 "${_SOURCE_NODE}")"
+  openFirewallPorts  "${CONTROL_LB_NAME}"  "${_SOURCE_IPV4}/32"  "udp"  4789  4789  "Flannel VXLAN from ${_SOURCE_NODE}"
+  openFirewallPorts  "${CONTROL_LB_NAME}"  "${_SOURCE_IPV4}/32"  "tcp"  6443  6443  "Kubernetes API from ${_SOURCE_NODE}"
+  openFirewallPorts  "${CONTROL_LB_NAME}"  "${_SOURCE_IPV4}/32"  "tcp"  50000  50001  "Talos apid+trustd from ${_SOURCE_NODE}"
+done
+for _SOURCE_NODE in "${CONTROL_NAMES[@]}"; do
+  ## Traffic from control nodes
+  _SOURCE_IPV4="$(getNodePublicIpv4 "${_SOURCE_NODE}")"
+  openFirewallPorts  "${CONTROL_LB_NAME}"  "${_SOURCE_IPV4}/32"  "tcp"  2380  2380  "Talos etcd from ${_SOURCE_NODE}"
+  openFirewallPorts  "${CONTROL_LB_NAME}"  "${_SOURCE_IPV4}/32"  "tcp"  10250  10250  "Kubelet API from ${_SOURCE_NODE}"
+done
+openFirewallPorts  "${CONTROL_LB_NAME}"  "${CONTROL_LB_IPV4}/32"  "tcp"  6443  6443  "Kubernetes API from LB ${CONTROL_LB_NAME}"
+openFirewallPorts  "${CONTROL_LB_NAME}"  "${CONTROL_LB_IPV4}/32"  "tcp"  50000  50000  "Talos apid from LB ${CONTROL_LB_NAME}"
+openFirewallPorts  "${CONTROL_LB_NAME}"  "${ENGINEER_IPV4}/32"  "tcp"  6443  6443    "Kubernetes API from engineer ${ENGINEER_IPV4}"
+openFirewallPorts  "${CONTROL_LB_NAME}"  "${ENGINEER_IPV4}/32"  "tcp"  50000  50000  "Talos apid from engineer ${ENGINEER_IPV4}"
+openFirewallPorts  "${CONTROL_LB_NAME}"  "0.0.0.0/0"  "icmp"  0  0  "ICMP from everywhere"
+
+showProgress "Open ports on Worker Firewall"
+
+for _SOURCE_NODE in "${NODE_NAMES[@]}"; do
+  ## Traffic from all nodes
+  _SOURCE_IPV4="$(getNodePublicIpv4 "${_SOURCE_NODE}")"
+  openFirewallPorts  "${WORKER_LB_NAME}"  "${_SOURCE_IPV4}/32"  "udp"  4789  4789  "Flannel VXLAN from ${_SOURCE_NODE}"
+  openFirewallPorts  "${WORKER_LB_NAME}"  "${_SOURCE_IPV4}/32"  "tcp"  6443  6443  "Kubernetes API from ${_SOURCE_NODE}"
+done
+for _SOURCE_NODE in "${CONTROL_NAMES[@]}"; do
+  ## Traffic from control nodes
+  _SOURCE_IPV4="$(getNodePublicIpv4 "${_SOURCE_NODE}")"
+  openFirewallPorts  "${WORKER_LB_NAME}"  "${_SOURCE_IPV4}/32"  "tcp"  10250  10250  "Kubelet API from ${_SOURCE_NODE}"
+  openFirewallPorts  "${WORKER_LB_NAME}"  "${_SOURCE_IPV4}/32"  "tcp"  50000  50000  "Talos apid from ${_SOURCE_NODE}"
+done
+openFirewallPorts  "${WORKER_LB_NAME}"  "0.0.0.0/0"  "tcp"  30000  32767  "NodePorts"
+openFirewallPorts  "${WORKER_LB_NAME}"  "${ENGINEER_IPV4}/32"  "tcp"  50000  50000  "Talos apid from engineer ${ENGINEER_IPV4}"
+openFirewallPorts  "${WORKER_LB_NAME}"  "0.0.0.0/0"  "icmp"  0  0  "ICMP from everywhere"
 
 showProgress "Wait all nodes to open port 50000"
 
-for NODE_NAME in "${NODE_NAMES[@]}"; do
+for NODE_NAME in "${INT_NODE_NAMES[@]}"; do
   _PUBLIC_IPV4="$(getNodePublicIpv4 "${NODE_NAME}")"
   waitForTcpPort  "${_PUBLIC_IPV4}"  50000
 done
@@ -309,7 +342,7 @@ done
 
 showProgress "Patch nodes to add providerID"
 
-for NODE_NAME in "${NODE_NAMES[@]}"; do
+for NODE_NAME in "${INT_NODE_NAMES[@]}"; do
   NODE_ID="hcloud://$( hcloud  server  describe  "${NODE_NAME}" -o json  |  jq  -r  '.id' )"
   if [ "<none>" == "$( kubectl get node "${NODE_NAME}" -o custom-columns=ID:.spec.providerID --no-headers )" ]; then
     kubectl  patch  node  "${NODE_NAME}"  --patch="{ \"spec\": {\"providerID\":\"${NODE_ID}\"} }"
@@ -389,7 +422,7 @@ if [ "${WORKER_DATA_VOLUME}" -gt 0 ]; then
       --timeout 20m \
       --debug
   kubectl  --namespace="${NAMESPACE}"  get  pods
-  for NODE_NAME in "${WORKER_NAMES[@]}"; do
+  for NODE_NAME in "${INT_WORKER_NAMES[@]}"; do
     showProgress "Create Mayastor diskpool on ${NODE_NAME}"
     cat <<EOF | kubectl  apply  --namespace="${NAMESPACE}"  --filename=-
 apiVersion: "openebs.io/v1beta1"

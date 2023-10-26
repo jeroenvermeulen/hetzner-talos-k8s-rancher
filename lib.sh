@@ -56,7 +56,10 @@ function getNodePrivateIp() {
 
 function getNodePublicIpv4() {
   local _NODE_NAME="${1}"
-  hcloud server describe "${_NODE_NAME}" --output json | jq -r '.public_net.ipv4.ip'
+  if ! hcloud server describe "${_NODE_NAME}" --output json | jq -r '.public_net.ipv4.ip'; then
+    # This can be an external node
+    dig +short -ta "${_NODE_NAME}"
+  fi
 }
 
 function getNodeIps() {
@@ -98,18 +101,31 @@ function waitForTcpPort() {
 }
 
 function openFirewallPorts() {
-  local _SOURCE_CIDR="${1}"
-  local _PROTOCOL="$(echo "${2}" | tr '[:upper:]' '[:lower:]')"
-  local _PORT_START="${3}"
-  local _PORT_END="${4}"
-  local _DESCRIPTION="${5}"
+  local _FIREWALL_NAME="${1}"
+  local _SOURCE_CIDR="${2}"
+  local _PROTOCOL="$(echo "${3}" | tr '[:upper:]' '[:lower:]')"
+  local _PORT_START="${4}"
+  local _PORT_END="${5}"
+  local _DESCRIPTION="${6}"
   local _PORT="${_PORT_START}-${_PORT_END}"
   if [ "${_PORT_START}" -eq "${_PORT_END}" ]; then
     _PORT="${_PORT_START}"
   fi
-  if ! hcloud firewall describe "${FIREWALL_NAME}" -o json | jq -e ".rules[] | select(.protocol==\"${_PROTOCOL}\" and .source_ips==[\"${_SOURCE_CIDR}\"] and .port==\"${_PORT}\")"; then
-    hcloud firewall add-rule "${FIREWALL_NAME}" --source-ips "${_SOURCE_CIDR}"  --port "${_PORT}"  --protocol "${_PROTOCOL}"  --direction in  --description "${_DESCRIPTION}"
-  fi
+  case "${_PROTOCOL}" in
+    tcp | udp)
+    if ! hcloud firewall describe "${_FIREWALL_NAME}" -o json | jq -e ".rules[] | select(.protocol==\"${_PROTOCOL}\" and .source_ips==[\"${_SOURCE_CIDR}\"] and .port==\"${_PORT}\")"; then
+      hcloud firewall add-rule "${_FIREWALL_NAME}" --source-ips "${_SOURCE_CIDR}"  --port "${_PORT}"  --protocol "${_PROTOCOL}"  --direction in  --description "${_DESCRIPTION}"
+    fi
+    ;;
+    icmp)
+    if ! hcloud firewall describe "${_FIREWALL_NAME}" -o json | jq -e ".rules[] | select(.protocol==\"${_PROTOCOL}\" and .source_ips==[\"${_SOURCE_CIDR}\"])"; then
+      hcloud firewall add-rule "${_FIREWALL_NAME}" --source-ips "${_SOURCE_CIDR}"  --protocol "${_PROTOCOL}"  --direction in  --description "${_DESCRIPTION}"
+    fi
+    ;;
+    *)
+    showError "Unknown protocol '${_PROTOCOL}'"
+    exit 1
+  esac
 }
 
 trap '{ set +o xtrace; } 2>/dev/null; onError' ERR SIGINT SIGTERM
@@ -132,7 +148,8 @@ if [ -n "${KUBECONFIG+x}" ]; then
   fi
 fi
 IMAGE_SELECTOR="version=${TALOS_VERSION},os=talos"
-FIREWALL_NAME="${CLUSTER_NAME}"
+CONTROL_FIREWALL_NAME="control.${CLUSTER_NAME}"
+WORKER_FIREWALL_NAME="workers.${CLUSTER_NAME}"
 CLUSTER_SELECTOR="cluster=${CLUSTER_NAME}"
 CONTROL_SELECTOR="type=controlplane,cluster=${CLUSTER_NAME}"
 WORKER_SELECTOR="type=worker,cluster=${CLUSTER_NAME}"
@@ -149,18 +166,29 @@ HCLOUD_CONTEXT="${CLUSTER_NAME}"
 CONTROL1_NAME="control1.${CLUSTER_NAME}"
 DEPLOY_DIR="${SCRIPT_DIR}/deploy"
 CONTROL_NAMES=()
-WORKER_NAMES=()
+INT_WORKER_NAMES=()
+INT_NODE_NAMES=()
 NODE_NAMES=()
 for (( NR=1; NR<="${CONTROL_COUNT}"; NR++ )); do
   NODE_NAME="control${NR}.${CLUSTER_NAME}"
   CONTROL_NAMES+=("${NODE_NAME}")
+  INT_NODE_NAMES+=("${NODE_NAME}")
   NODE_NAMES+=("${NODE_NAME}")
 done
 for (( NR=1; NR<="${WORKER_COUNT}"; NR++ )); do
   NODE_NAME="worker${NR}.${CLUSTER_NAME}"
+  INT_WORKER_NAMES+=("${NODE_NAME}")
   WORKER_NAMES+=("${NODE_NAME}")
+  INT_NODE_NAMES+=("${NODE_NAME}")
   NODE_NAMES+=("${NODE_NAME}")
 done
+if [ -n "${EXT_WORKER_NAMES+x}" ]; then
+  for NODE_NAME in ${EXT_WORKER_NAMES}; do
+    WORKER_NAMES+=("${NODE_NAME}")
+    NODE_NAMES+=("${NODE_NAME}")
+  done
+fi
+unset NR
 unset NODE_NAME
 export KUBECONFIG
 export TALOSCONFIG
