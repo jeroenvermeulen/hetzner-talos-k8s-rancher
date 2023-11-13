@@ -267,8 +267,7 @@ done
 for _SOURCE_NODE in "${CONTROL_NAMES[@]}"; do
   ## Traffic from control nodes
   _SOURCE_IPV4="$(getNodePublicIpv4 "${_SOURCE_NODE}")"
-  openFirewallPorts  "${CONTROL_LB_NAME}"  "${_SOURCE_IPV4}/32"  "tcp"  2380  2380  "Talos etcd from ${_SOURCE_NODE}"
-  openFirewallPorts  "${CONTROL_LB_NAME}"  "${_SOURCE_IPV4}/32"  "tcp"  10250  10250  "Kubelet API from ${_SOURCE_NODE}"
+  openFirewallPorts  "${CONTROL_LB_NAME}"  "${_SOURCE_IPV4}/32"  "tcp"  1  65535  "All TCP from ${_SOURCE_NODE}"
 done
 openFirewallPorts  "${CONTROL_LB_NAME}"  "${CONTROL_LB_IPV4}/32"  "tcp"  6443  6443  "Kubernetes API from LB ${CONTROL_LB_NAME}"
 openFirewallPorts  "${CONTROL_LB_NAME}"  "${CONTROL_LB_IPV4}/32"  "tcp"  50000  50000  "Talos apid from LB ${CONTROL_LB_NAME}"
@@ -287,8 +286,7 @@ done
 for _SOURCE_NODE in "${CONTROL_NAMES[@]}"; do
   ## Traffic from control nodes
   _SOURCE_IPV4="$(getNodePublicIpv4 "${_SOURCE_NODE}")"
-  openFirewallPorts  "${WORKER_LB_NAME}"  "${_SOURCE_IPV4}/32"  "tcp"  10250  10250  "Kubelet API from ${_SOURCE_NODE}"
-  openFirewallPorts  "${WORKER_LB_NAME}"  "${_SOURCE_IPV4}/32"  "tcp"  50000  50000  "Talos apid from ${_SOURCE_NODE}"
+  openFirewallPorts  "${WORKER_LB_NAME}"  "${_SOURCE_IPV4}/32"  "tcp"  1  65535  "All TCP from ${_SOURCE_NODE}"
 done
 openFirewallPorts  "${WORKER_LB_NAME}"  "0.0.0.0/0"  "tcp"  30000  32767  "NodePorts"
 openFirewallPorts  "${WORKER_LB_NAME}"  "${ENGINEER_IPV4}/32"  "tcp"  50000  50000  "Talos apid from engineer ${ENGINEER_IPV4}"
