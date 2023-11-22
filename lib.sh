@@ -68,17 +68,20 @@ function getNodeIps() {
   CONTROL_IPS=()
   WORKER_IPS=()
   local _NODE_NAME
+  WORKER_IPS_COMMA=""
   for _NODE_NAME in "${CONTROL_NAMES[@]}"; do
     NODE_IPS+=("$( getNodePublicIpv4 "${_NODE_NAME}" )")
     CONTROL_IPS+=("$( getNodePublicIpv4 "${_NODE_NAME}" )")
   done
-  for _NODE_NAME in "${WORKER_NAMES[@]}"; do
-    NODE_IPS+=("$( getNodePublicIpv4 "${_NODE_NAME}" )")
-    WORKER_IPS+=("$( getNodePublicIpv4 "${_NODE_NAME}" )")
-  done
+  if [ "${#WORKER_NAMES[@]}" -gt 0 ]; then
+    for _NODE_NAME in "${WORKER_NAMES[@]}"; do
+      NODE_IPS+=("$( getNodePublicIpv4 "${_NODE_NAME}" )")
+      WORKER_IPS+=("$( getNodePublicIpv4 "${_NODE_NAME}" )")
+    done
+    WORKER_IPS_COMMA="$( IFS=','; echo "${WORKER_IPS[*]}" )"
+  fi
   NODE_IPS_COMMA="$( IFS=','; echo "${NODE_IPS[*]}" )"
   CONTROL_IPS_COMMA="$( IFS=','; echo "${CONTROL_IPS[*]}" )"
-  WORKER_IPS_COMMA="$( IFS=','; echo "${WORKER_IPS[*]}" )"
 }
 
 function getLoadBalancerIps() {
@@ -169,6 +172,7 @@ CONTROL_NAMES=()
 INT_WORKER_NAMES=()
 INT_NODE_NAMES=()
 NODE_NAMES=()
+WORKER_NAMES=()
 for (( NR=1; NR<="${CONTROL_COUNT}"; NR++ )); do
   NODE_NAME="control${NR}.${CLUSTER_NAME}"
   CONTROL_NAMES+=("${NODE_NAME}")

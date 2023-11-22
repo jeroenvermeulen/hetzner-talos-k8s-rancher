@@ -58,3 +58,24 @@ Make sure you update at least `RANCHER_HOSTNAME`
 ./3_rancher.sh
 ```
 If everything works well the last script will display the Rancher URL.
+
+## Debug Commands
+
+#### Set the context for hcloud, talosctl and kubectl:
+```bash
+source ./env.sh
+```
+#### Get cluster members
+```bash
+talosctl get members
+```
+#### Check state of services:
+```bash
+talosctl services --nodes 111.22.33.44
+```
+#### Check logs of a service:
+```bash
+talosctl logs etcd --nodes 111.22.33.44
+```
+If the loadbalancer is not working correctly you can add `--endpoint 111.22.33.44` with the node IP to connect to 
+port 50000 (Talos API) of the node directly instead of through the loadbalancer.

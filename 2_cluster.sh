@@ -123,6 +123,10 @@ showProgress "Start control nodes"
 for (( NR=0; NR<${#CONTROL_NAMES[@]}; NR++ )); do
   NODE_NAME="${CONTROL_NAMES[${NR}]}"
   CONFIG_FILE="${SCRIPT_DIR}/node_${NODE_NAME}.yaml"
+  CONTROL_EXTRA_OPTS=( '' )
+  if [ 0 -eq "${WORKER_COUNT}" ]; then
+    CONTROL_EXTRA_OPTS=( --config-patch "@${SCRIPT_DIR}/deploy/talos-patch-no-workers.yaml" )
+  fi
   (
     umask 0077
     talosctl  gen  config  "${TALOS_CONTEXT}"  "https://${CONTROL_LB_IPV4}:6443" \
@@ -148,6 +152,7 @@ for (( NR=0; NR<${#CONTROL_NAMES[@]}; NR++ )); do
                           \"value\": \"${CONTROL_LOCATION[${NR}]}\"
                         }
                       ]" \
+      ${CONTROL_EXTRA_OPTS[@]} \
       --kubernetes-version="${KUBE_VERSION}" \
       --additional-sans "${CONTROL_LB_IPV4},${CONTROL_LB_NAME}" \
       --output-types controlplane \
@@ -178,7 +183,7 @@ for (( NR=0; NR<${#INT_WORKER_NAMES[@]}; NR++ )); do
   NODE_NAME="${INT_WORKER_NAMES[${NR}]}"
   CONFIG_FILE="${SCRIPT_DIR}/node_${NODE_NAME}.yaml"
   VOLUME_MOUNT=( '' )
-  VOLUME_PATCH=( '' )
+  WORKER_EXTRA_OPTS=( '' )
   if [ "${WORKER_DATA_VOLUME}" -gt 0 ]; then
     VOLUME_NAME="${NODE_NAME}-data"
     if  ! hcloud volume list --output noheader  --output columns=name | grep "^${VOLUME_NAME}$"; then
@@ -189,7 +194,7 @@ for (( NR=0; NR<${#INT_WORKER_NAMES[@]}; NR++ )); do
         --format xfs
     fi
     VOLUME_MOUNT=( --automount  --volume "${VOLUME_NAME}" )
-    VOLUME_PATCH=( --config-patch "@${SCRIPT_DIR}/deploy/talos-patch-data.yaml" )
+    WORKER_EXTRA_OPTS=( --config-patch "@${SCRIPT_DIR}/deploy/talos-patch-data.yaml" )
   fi
   (
     umask 0077
@@ -213,7 +218,7 @@ for (( NR=0; NR<${#INT_WORKER_NAMES[@]}; NR++ )); do
                                      }
                         }
                       ]" \
-      ${VOLUME_PATCH[@]} \
+      ${WORKER_EXTRA_OPTS[@]} \
       --kubernetes-version="${KUBE_VERSION}" \
       --additional-sans "${CONTROL_LB_IPV4},${CONTROL_LB_NAME}" \
       --output-types worker \
