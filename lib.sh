@@ -105,24 +105,39 @@ function waitForTcpPort() {
 
 function openFirewallPorts() {
   local _FIREWALL_NAME="${1}"
-  local _SOURCE_CIDR="${2}"
+  local _SOURCE_IPS="${2}"
   local _PROTOCOL="$(echo "${3}" | tr '[:upper:]' '[:lower:]')"
   local _PORT_START="${4}"
   local _PORT_END="${5}"
   local _DESCRIPTION="${6}"
   local _PORT="${_PORT_START}-${_PORT_END}"
+  local _OPTIONS=()
+  local _SOURCE_LIST=()
   if [ "${_PORT_START}" -eq "${_PORT_END}" ]; then
     _PORT="${_PORT_START}"
   fi
+  if [[ "${_SOURCE_IPS}" == */* ]]; then
+    _OPTIONS+=("--source-ips" "${_SOURCE_IPS}")
+    _SOURCE_LIST+=("\"${_SOURCE_IPS}\"")
+  else
+     local _IPLIST
+     IFS=, read -ra _IPLIST <<< "${_SOURCE_IPS}"
+     for _SOURCE_IP in "${_IPLIST[@]}"; do
+      _OPTIONS+=("--source-ips" "${_SOURCE_IP}/32")
+      _SOURCE_LIST+=("\"${_SOURCE_IP}/32\"")
+    done
+  fi
+  IFS=$'\n' _SOURCE_LIST=($(sort <<<"${_SOURCE_LIST[*]}"))
+  local _SOURCE_MATCH="[$( IFS=','; echo "${_SOURCE_LIST[*]}" )]"
   case "${_PROTOCOL}" in
     tcp | udp)
-    if ! hcloud firewall describe "${_FIREWALL_NAME}" -o json | jq -e ".rules[] | select(.protocol==\"${_PROTOCOL}\" and .source_ips==[\"${_SOURCE_CIDR}\"] and .port==\"${_PORT}\")"; then
-      hcloud firewall add-rule "${_FIREWALL_NAME}" --source-ips "${_SOURCE_CIDR}"  --port "${_PORT}"  --protocol "${_PROTOCOL}"  --direction in  --description "${_DESCRIPTION}"
+    if ! hcloud firewall describe "${_FIREWALL_NAME}" -o json | jq -e ".rules[] | select(.protocol==\"${_PROTOCOL}\" and .source_ips==${_SOURCE_MATCH} and .port==\"${_PORT}\")"; then
+      hcloud firewall add-rule "${_FIREWALL_NAME}" ${_OPTIONS[@]}  --port "${_PORT}"  --protocol "${_PROTOCOL}"  --direction in  --description "${_DESCRIPTION}"
     fi
     ;;
     icmp)
-    if ! hcloud firewall describe "${_FIREWALL_NAME}" -o json | jq -e ".rules[] | select(.protocol==\"${_PROTOCOL}\" and .source_ips==[\"${_SOURCE_CIDR}\"])"; then
-      hcloud firewall add-rule "${_FIREWALL_NAME}" --source-ips "${_SOURCE_CIDR}"  --protocol "${_PROTOCOL}"  --direction in  --description "${_DESCRIPTION}"
+    if ! hcloud firewall describe "${_FIREWALL_NAME}" -o json | jq -e ".rules[] | select(.protocol==\"${_PROTOCOL}\" and .source_ips==${_SOURCE_MATCH})"; then
+      hcloud firewall add-rule "${_FIREWALL_NAME}" ${_OPTIONS[@]}  --protocol "${_PROTOCOL}"  --direction in  --description "${_DESCRIPTION}"
     fi
     ;;
     *)

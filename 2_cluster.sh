@@ -262,18 +262,11 @@ showProgress "Open ports on Control Firewall"
 # https://kubernetes.io/docs/reference/networking/ports-and-protocols/#node
 # https://www.talos.dev/v1.5/learn-more/talos-network-connectivity/#configuring-network-connectivity
 
-for _SOURCE_NODE in "${NODE_NAMES[@]}"; do
-  ## Traffic from all nodes
-  _SOURCE_IPV4="$(getNodePublicIpv4 "${_SOURCE_NODE}")"
-  openFirewallPorts  "${CONTROL_LB_NAME}"  "${_SOURCE_IPV4}/32"  "udp"  4789  4789  "Flannel VXLAN from ${_SOURCE_NODE}"
-  openFirewallPorts  "${CONTROL_LB_NAME}"  "${_SOURCE_IPV4}/32"  "tcp"  6443  6443  "Kubernetes API from ${_SOURCE_NODE}"
-  openFirewallPorts  "${CONTROL_LB_NAME}"  "${_SOURCE_IPV4}/32"  "tcp"  50000  50001  "Talos apid+trustd from ${_SOURCE_NODE}"
-done
-for _SOURCE_NODE in "${CONTROL_NAMES[@]}"; do
-  ## Traffic from control nodes
-  _SOURCE_IPV4="$(getNodePublicIpv4 "${_SOURCE_NODE}")"
-  openFirewallPorts  "${CONTROL_LB_NAME}"  "${_SOURCE_IPV4}/32"  "tcp"  1  65535  "All TCP from ${_SOURCE_NODE}"
-done
+## Traffic from all nodess
+openFirewallPorts  "${CONTROL_LB_NAME}"  "${NODE_IPS_COMMA}"  "udp"  4789  4789  "Flannel VXLAN from all nodes"
+openFirewallPorts  "${CONTROL_LB_NAME}"  "${NODE_IPS_COMMA}"  "tcp"  6443  6443  "Kubernetes API from all nodes"
+openFirewallPorts  "${CONTROL_LB_NAME}"  "${NODE_IPS_COMMA}"  "tcp"  50000  50001  "Talos apid+trustd from all nodes"
+openFirewallPorts  "${CONTROL_LB_NAME}"  "${CONTROL_IPS_COMMA}"  "tcp"  1  65535  "All TCP from control nodes"
 openFirewallPorts  "${CONTROL_LB_NAME}"  "${CONTROL_LB_IPV4}/32"  "tcp"  6443  6443  "Kubernetes API from LB ${CONTROL_LB_NAME}"
 openFirewallPorts  "${CONTROL_LB_NAME}"  "${CONTROL_LB_IPV4}/32"  "tcp"  50000  50000  "Talos apid from LB ${CONTROL_LB_NAME}"
 openFirewallPorts  "${CONTROL_LB_NAME}"  "${ENGINEER_IPV4}/32"  "tcp"  6443  6443    "Kubernetes API from engineer ${ENGINEER_IPV4}"
@@ -281,18 +274,10 @@ openFirewallPorts  "${CONTROL_LB_NAME}"  "${ENGINEER_IPV4}/32"  "tcp"  50000  50
 openFirewallPorts  "${CONTROL_LB_NAME}"  "0.0.0.0/0"  "icmp"  0  0  "ICMP from everywhere"
 
 showProgress "Open ports on Worker Firewall"
-
-for _SOURCE_NODE in "${NODE_NAMES[@]}"; do
-  ## Traffic from all nodes
-  _SOURCE_IPV4="$(getNodePublicIpv4 "${_SOURCE_NODE}")"
-  openFirewallPorts  "${WORKER_LB_NAME}"  "${_SOURCE_IPV4}/32"  "udp"  4789  4789  "Flannel VXLAN from ${_SOURCE_NODE}"
-  openFirewallPorts  "${WORKER_LB_NAME}"  "${_SOURCE_IPV4}/32"  "tcp"  6443  6443  "Kubernetes API from ${_SOURCE_NODE}"
-done
-for _SOURCE_NODE in "${CONTROL_NAMES[@]}"; do
-  ## Traffic from control nodes
-  _SOURCE_IPV4="$(getNodePublicIpv4 "${_SOURCE_NODE}")"
-  openFirewallPorts  "${WORKER_LB_NAME}"  "${_SOURCE_IPV4}/32"  "tcp"  1  65535  "All TCP from ${_SOURCE_NODE}"
-done
+openFirewallPorts  "${WORKER_LB_NAME}"  "${NODE_IPS_COMMA}"  "udp"  4789  4789  "Flannel VXLAN from all nodes"
+openFirewallPorts  "${WORKER_LB_NAME}"  "${NODE_IPS_COMMA}"  "tcp"  6443  6443  "Kubernetes API from all nodes"
+## Traffic from control nodes
+openFirewallPorts  "${WORKER_LB_NAME}"  "${CONTROL_IPS_COMMA}"  "tcp"  1  65535  "All TCP from control nodes"
 openFirewallPorts  "${WORKER_LB_NAME}"  "0.0.0.0/0"  "tcp"  30000  32767  "NodePorts"
 openFirewallPorts  "${WORKER_LB_NAME}"  "${ENGINEER_IPV4}/32"  "tcp"  50000  50000  "Talos apid from engineer ${ENGINEER_IPV4}"
 openFirewallPorts  "${WORKER_LB_NAME}"  "0.0.0.0/0"  "icmp"  0  0  "ICMP from everywhere"
