@@ -33,3 +33,7 @@ cluster:
   proxy:
     extraArgs:
       healthz-bind-address: "127.0.0.1:10256"
+      metrics-bind-address: "0.0.0.0:10249"
+  controllerManager:
+    extraArgs:
+      bind-address: "0.0.0.0"
