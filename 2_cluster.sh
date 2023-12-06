@@ -323,24 +323,6 @@ for (( TRY=0; TRY<100; TRY++ )); do
   fi
 done
 
-helm repo add cilium https://helm.cilium.io/
-helm repo update cilium
-NAMESPACE="kube-system"
-if  helm  get  manifest  --namespace "${NAMESPACE}"  cilium  &>/dev/null; then
-  HELM_ACTION="upgrade"
-fi
-helm "${HELM_ACTION}" \
-    cilium \
-    cilium/cilium \
-    --version 1.14.0 \
-    --namespace ${NAMESPACE} \
-    --set ipam.mode=kubernetes \
-    --set=kubeProxyReplacement=disabled \
-    --set=securityContext.capabilities.ciliumAgent="{CHOWN,KILL,NET_ADMIN,NET_RAW,IPC_LOCK,SYS_ADMIN,SYS_RESOURCE,DAC_OVERRIDE,FOWNER,SETGID,SETUID}" \
-    --set=securityContext.capabilities.cleanCiliumState="{NET_ADMIN,SYS_ADMIN,SYS_RESOURCE}" \
-    --set=cgroup.autoMount.enabled=false \
-    --set=cgroup.hostRoot=/sys/fs/cgroup
-
 showProgress "Patch nodes to add providerID"
 
 for NODE_NAME in "${INT_NODE_NAMES[@]}"; do

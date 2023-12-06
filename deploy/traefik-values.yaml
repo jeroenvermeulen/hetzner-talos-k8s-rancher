@@ -15,6 +15,3 @@ providers:
   kubernetesIngress:
     publishedService:
       enabled: true
-tolerations:
-  - effect: NoSchedule
-    operator: Exists

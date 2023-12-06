@@ -12,7 +12,7 @@ if [ $( uname -s ) == "Darwin" ]; then
     exit 1
   fi
   showProgress "Install packages using Homebrew"
-  brew  install  packer  hcloud  jq  siderolabs/talos/talosctl  kubernetes-cli  helm
+  brew  install  packer  hcloud  jq  siderolabs/talos/talosctl  kubernetes-cli  helm  cilium-cli
 
   showProgress "Install kubectl-mayastor from repo"
   curl -L  "https://github.com/openebs/mayastor-control-plane/releases/latest/download/kubectl-mayastor-x86_64-apple-darwin.zip" \
@@ -55,6 +55,14 @@ elif [ $( uname -s ) == "Linux" ] && command -v apt-get > /dev/null; then
   if [ "${BUILD_ARCH}" != "amd64" ]; then
     sudo apt-get  install  --assume-yes  qemu-user
   fi
+
+  showProgress "Install cilium from repo"
+  CILIUM_CLI_VERSION=$(curl -s https://raw.githubusercontent.com/cilium/cilium-cli/main/stable.txt)
+  CLI_ARCH=amd64
+  if [ "$(uname -m)" = "aarch64" ]; then CLI_ARCH=arm64; fi
+  curl -L  "https://github.com/cilium/cilium-cli/releases/download/${CILIUM_CLI_VERSION}/cilium-linux-${BUILD_ARCH}.tar.gz" \
+    --output /tmp/cilium-cli.tgz
+  sudo tar xzvfC  /tmp/cilium-cli.tgz  /usr/local/bin
 else
   showError "Unrecognised system please install the tools tested on the bottom of $(basename "${BASH_SOURCE[0]}") yourself."
   exit 1
@@ -78,5 +86,7 @@ if [ $( uname -s ) == "Linux" ] && [ "$( uname -m )" != "x86_64" ]; then
 else
   kubectl  mayastor  --version
 fi
+showProgress "Version of 'cilium':"
+cilium version
 
 showNotice "==== Finished $(basename "$0") ===="
