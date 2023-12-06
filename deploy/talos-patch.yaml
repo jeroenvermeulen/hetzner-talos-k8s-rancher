@@ -1,5 +1,8 @@
 ---
 machine:
+  network:
+    kubespan:
+      enabled: true
   features:
     kubePrism:
       enabled: true
@@ -27,6 +30,12 @@ machine:
     extensions:
       - image: ghcr.io/siderolabs/iscsi-tools:v0.1.1  # newer versions keep crashing on dedicated servers, tested till v0.1.4
 cluster:
+  discovery:
+    enabled: true
+    registries:
+      kubernetes: # Kubernetes registry is problematic with KubeSpan, if the control plane endpoint is routeable itself via KubeSpan.
+        disabled: true
+      service: {}
   extraManifests:
     - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/main/deploy/standalone-install.yaml
     - https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml

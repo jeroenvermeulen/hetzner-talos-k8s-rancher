@@ -203,6 +203,7 @@ for (( NR=0; NR<${#INT_WORKER_NAMES[@]}; NR++ )); do
       --with-docs=false \
       --with-examples=false \
       --config-patch "@${SCRIPT_DIR}/deploy/talos-patch.yaml" \
+      --config-patch "@${SCRIPT_DIR}/deploy/talos-patch-worker.yaml" \
       --config-patch "[
                         {
                           \"op\": \"replace\",
@@ -211,11 +212,13 @@ for (( NR=0; NR<${#INT_WORKER_NAMES[@]}; NR++ )); do
                         },
                         {
                           \"op\": \"add\",
-                          \"path\": \"/machine/nodeLabels\",
-                          \"value\": {
-                                       \"node.kubernetes.io/instance-type\": \"${WORKER_TYPE}\",
-                                       \"topology.kubernetes.io/zone\": \"${WORKER_LOCATION[${NR}]}\"
-                                     }
+                          \"path\": \"/machine/nodeLabels/node.kubernetes.io~1instance-type\",
+                          \"value\": \"${WORKER_TYPE}\"
+                        },
+                        {
+                          \"op\": \"add\",
+                          \"path\": \"/machine/nodeLabels/topology.kubernetes.io~1zone\",
+                          \"value\": \"${WORKER_LOCATION[${NR}]}\"
                         }
                       ]" \
       ${WORKER_EXTRA_OPTS[@]} \
@@ -263,18 +266,17 @@ showProgress "Open ports on Control Firewall"
 # https://www.talos.dev/v1.5/learn-more/talos-network-connectivity/#configuring-network-connectivity
 
 ## Traffic from all nodess
-openFirewallPorts  "${CONTROL_LB_NAME}"  "${NODE_IPS_COMMA}"  "udp"  4789  4789  "Flannel VXLAN from all nodes"
+openFirewallPorts  "${CONTROL_LB_NAME}"  "${NODE_IPS_COMMA}"  "udp"  51820  51820  "KubeSpan from all nodes"
 openFirewallPorts  "${CONTROL_LB_NAME}"  "${NODE_IPS_COMMA},${CONTROL_LB_IPV4},${ENGINEER_IPV4}"  "tcp"  6443  6443  "Kubernetes API from all nodes + Control LB + engineer"
 openFirewallPorts  "${CONTROL_LB_NAME}"  "${NODE_IPS_COMMA},${CONTROL_LB_IPV4},${ENGINEER_IPV4}"  "tcp"  50000  50001  "Talos apid+trustd from all nodes + Control LB + engineer"
 openFirewallPorts  "${CONTROL_LB_NAME}"  "${CONTROL_IPS_COMMA}"  "tcp"  1  65535  "All TCP from control nodes"
 openFirewallPorts  "${CONTROL_LB_NAME}"  "0.0.0.0/0"  "icmp"  0  0  "ICMP from everywhere"
 
 showProgress "Open ports on Worker Firewall"
-openFirewallPorts  "${WORKER_LB_NAME}"  "${NODE_IPS_COMMA}"  "udp"  4789  4789  "Flannel VXLAN from all nodes"
-openFirewallPorts  "${WORKER_LB_NAME}"  "${NODE_IPS_COMMA},${ENGINEER_IPV4}"  "tcp"  6443  6443  "Kubernetes API from all nodes + engineer"
-openFirewallPorts  "${WORKER_LB_NAME}"  "${CONTROL_IPS_COMMA}"  "tcp"  1  65535  "All TCP from control nodes"
-openFirewallPorts  "${WORKER_LB_NAME}"  "0.0.0.0/0"  "tcp"  30000  32767  "NodePorts"
-openFirewallPorts  "${WORKER_LB_NAME}"  "${ENGINEER_IPV4}/32"  "tcp"  50000  50000  "Talos apid from engineer"
+openFirewallPorts  "${WORKER_LB_NAME}"  "${NODE_IPS_COMMA}"  "udp"  51820  51820  "KubeSpan from all nodes"
+openFirewallPorts  "${WORKER_LB_NAME}"  "${WORKER_LB_IPV4}"  "tcp"  30000  32767  "NodePorts from Worker LB"
+openFirewallPorts  "${WORKER_LB_NAME}"  "${ENGINEER_IPV4}"  "tcp"  6443  6443  "Kubernetes API from engineer"
+openFirewallPorts  "${WORKER_LB_NAME}"  "${ENGINEER_IPV4}"  "tcp"  50000  50000  "Talos apid from engineer"
 openFirewallPorts  "${WORKER_LB_NAME}"  "0.0.0.0/0"  "icmp"  0  0  "ICMP from everywhere"
 
 showProgress "Wait all nodes to open port 50000"
@@ -289,6 +291,11 @@ showProgress "Bootstrap Talos cluster"
 if ! talosctl  etcd  status  --nodes "${CONTROL_IPS[0]}"  --endpoints "${CONTROL_IPS[0]}"  2>/dev/null; then
   talosctl  bootstrap  --nodes "${CONTROL_IPS[0]}"  --endpoints "${CONTROL_IPS[0]}"
 fi
+
+showProgress "KubeSpan Peers (from control1)"
+
+talosctl --nodes "${CONTROL_IPS[0]}" get kubespanpeerspecs
+talosctl --nodes "${CONTROL_IPS[0]}" get kubespanpeerstatuses
 
 showProgress "Update kubeconfig for kubectl"
 

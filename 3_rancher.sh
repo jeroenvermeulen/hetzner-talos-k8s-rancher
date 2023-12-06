@@ -20,6 +20,10 @@ HELM_ACTION="install"
 if  helm  get  manifest  --namespace "${NAMESPACE}"  traefik  &>/dev/null; then
   HELM_ACTION="upgrade"
 fi
+EXTRA_OPTS=( '' )
+if [ 0 -eq "${WORKER_COUNT}" ]; then
+  EXTRA_OPTS=( --set-json "tolerations=[{\"effect\":\"NoSchedule\",\"operator\":\"Exists\"}]" )
+fi
 # https://github.com/traefik/traefik-helm-chart/blob/master/traefik/values.yaml
 # https://pkg.go.dev/github.com/hetznercloud/hcloud-cloud-controller-manager/internal/annotation#Name
 helm  "${HELM_ACTION}"  traefik  traefik/traefik \
@@ -32,8 +36,10 @@ helm  "${HELM_ACTION}"  traefik  traefik/traefik \
     --set-json "service.annotations={
           \"load-balancer.hetzner.cloud/name\":\"${WORKER_LB_NAME}\",
           \"load-balancer.hetzner.cloud/location\":\"${WORKER_LB_LOCATION}\",
+          \"load-balancer.hetzner.cloud/node-selector\":\"node-role.kubernetes.io/worker\",
           \"external-dns.alpha.kubernetes.io/hostname\":\"${WORKER_LB_NAME}\"
     }"\
+    ${EXTRA_OPTS[@]} \
     --wait \
     --timeout 20m \
     --debug
