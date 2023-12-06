@@ -27,6 +27,9 @@ machine:
     extensions:
       - image: ghcr.io/siderolabs/iscsi-tools:v0.1.1  # newer versions keep crashing on dedicated servers, tested till v0.1.4
 cluster:
+  network:
+    cni:
+      name: none
   extraManifests:
     - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/main/deploy/standalone-install.yaml
     - https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
