@@ -264,22 +264,17 @@ showProgress "Open ports on Control Firewall"
 
 ## Traffic from all nodess
 openFirewallPorts  "${CONTROL_LB_NAME}"  "${NODE_IPS_COMMA}"  "udp"  4789  4789  "Flannel VXLAN from all nodes"
-openFirewallPorts  "${CONTROL_LB_NAME}"  "${NODE_IPS_COMMA}"  "tcp"  6443  6443  "Kubernetes API from all nodes"
-openFirewallPorts  "${CONTROL_LB_NAME}"  "${NODE_IPS_COMMA}"  "tcp"  50000  50001  "Talos apid+trustd from all nodes"
+openFirewallPorts  "${CONTROL_LB_NAME}"  "${NODE_IPS_COMMA},${CONTROL_LB_IPV4},${ENGINEER_IPV4}"  "tcp"  6443  6443  "Kubernetes API from all nodes + Control LB + engineer"
+openFirewallPorts  "${CONTROL_LB_NAME}"  "${NODE_IPS_COMMA},${CONTROL_LB_IPV4},${ENGINEER_IPV4}"  "tcp"  50000  50001  "Talos apid+trustd from all nodes + Control LB + engineer"
 openFirewallPorts  "${CONTROL_LB_NAME}"  "${CONTROL_IPS_COMMA}"  "tcp"  1  65535  "All TCP from control nodes"
-openFirewallPorts  "${CONTROL_LB_NAME}"  "${CONTROL_LB_IPV4}/32"  "tcp"  6443  6443  "Kubernetes API from LB ${CONTROL_LB_NAME}"
-openFirewallPorts  "${CONTROL_LB_NAME}"  "${CONTROL_LB_IPV4}/32"  "tcp"  50000  50000  "Talos apid from LB ${CONTROL_LB_NAME}"
-openFirewallPorts  "${CONTROL_LB_NAME}"  "${ENGINEER_IPV4}/32"  "tcp"  6443  6443    "Kubernetes API from engineer ${ENGINEER_IPV4}"
-openFirewallPorts  "${CONTROL_LB_NAME}"  "${ENGINEER_IPV4}/32"  "tcp"  50000  50000  "Talos apid from engineer ${ENGINEER_IPV4}"
 openFirewallPorts  "${CONTROL_LB_NAME}"  "0.0.0.0/0"  "icmp"  0  0  "ICMP from everywhere"
 
 showProgress "Open ports on Worker Firewall"
 openFirewallPorts  "${WORKER_LB_NAME}"  "${NODE_IPS_COMMA}"  "udp"  4789  4789  "Flannel VXLAN from all nodes"
-openFirewallPorts  "${WORKER_LB_NAME}"  "${NODE_IPS_COMMA}"  "tcp"  6443  6443  "Kubernetes API from all nodes"
-## Traffic from control nodes
+openFirewallPorts  "${WORKER_LB_NAME}"  "${NODE_IPS_COMMA},${ENGINEER_IPV4}"  "tcp"  6443  6443  "Kubernetes API from all nodes + engineer"
 openFirewallPorts  "${WORKER_LB_NAME}"  "${CONTROL_IPS_COMMA}"  "tcp"  1  65535  "All TCP from control nodes"
 openFirewallPorts  "${WORKER_LB_NAME}"  "0.0.0.0/0"  "tcp"  30000  32767  "NodePorts"
-openFirewallPorts  "${WORKER_LB_NAME}"  "${ENGINEER_IPV4}/32"  "tcp"  50000  50000  "Talos apid from engineer ${ENGINEER_IPV4}"
+openFirewallPorts  "${WORKER_LB_NAME}"  "${ENGINEER_IPV4}/32"  "tcp"  50000  50000  "Talos apid from engineer"
 openFirewallPorts  "${WORKER_LB_NAME}"  "0.0.0.0/0"  "icmp"  0  0  "ICMP from everywhere"
 
 showProgress "Wait all nodes to open port 50000"
