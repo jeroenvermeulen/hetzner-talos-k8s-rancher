@@ -1,3 +1,6 @@
 ---
 cluster:
   allowSchedulingOnControlPlanes: true
+machine:
+  nodeLabels:
+    node-role.kubernetes.io/worker: "true"
