@@ -274,7 +274,6 @@ openFirewallPorts  "${CONTROL_LB_NAME}"  "0.0.0.0/0"  "icmp"  0  0  "ICMP from e
 showProgress "Open ports on Worker Firewall"
 openFirewallPorts  "${WORKER_LB_NAME}"  "${NODE_IPS_COMMA}"  "udp"  51820  51820  "KubeSpan from all nodes"
 openFirewallPorts  "${WORKER_LB_NAME}"  "${WORKER_LB_IPV4}"  "tcp"  30000  32767  "NodePorts from Worker LB"
-openFirewallPorts  "${WORKER_LB_NAME}"  "${ENGINEER_IPV4}"  "tcp"  6443  6443  "Kubernetes API from engineer"
 openFirewallPorts  "${WORKER_LB_NAME}"  "${ENGINEER_IPV4}"  "tcp"  50000  50000  "Talos apid from engineer"
 openFirewallPorts  "${WORKER_LB_NAME}"  "0.0.0.0/0"  "icmp"  0  0  "ICMP from everywhere"
 
@@ -360,7 +359,7 @@ if  helm  get  manifest  --namespace "${NAMESPACE}"  hccm  &>/dev/null; then
   HELM_ACTION="upgrade"
 fi
 
-# https://github.com/hetznercloud/hcloud-cloud-controller-manager/tree/main/chart
+# https://github.com/hetznercloud/hcloud-cloud-controller-manager/blob/main/chart/values.yaml
 helm  repo  add  hcloud  "https://charts.hetzner.cloud"
 helm  repo  update  hcloud
 helm  "${HELM_ACTION}"  hccm  hcloud/hcloud-cloud-controller-manager \
