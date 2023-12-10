@@ -2,7 +2,7 @@
 CLUSTER_NAME="eu1"                              # Name for your cluster.
 RANCHER_HOSTNAME="rancher.eu1.yourdomain.com"   # You need to update this value
 TALOS_VERSION="v1.5.5"                          # https://github.com/siderolabs/talos/releases
-KUBE_VERSION="v1.26.11"                          # https://kubernetes.io/releases/ - Rancher 2.7.9 must run on K8S <= v1.26
+KUBE_VERSION="v1.27.8"                          # https://kubernetes.io/releases/ - Rancher 2.8.0 must run on K8S <= v1.27
 RANCHER_VERSION="latest"                        # https://github.com/rancher/rancher/releases
 MAYASTOR_VERSION="latest"                       # https://github.com/openebs/mayastor-extensions/releases
 NETWORK_ZONE="eu-central"                       # https://docs.hetzner.com/cloud/general/locations/

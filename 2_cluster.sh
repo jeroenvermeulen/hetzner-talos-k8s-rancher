@@ -366,7 +366,8 @@ helm  repo  update  hcloud
 helm  "${HELM_ACTION}"  hccm  hcloud/hcloud-cloud-controller-manager \
  --namespace "${NAMESPACE}" \
  --values "${SCRIPT_DIR}/deploy/hcloud-ccm-values.yaml" \
- --set "env.HCLOUD_LOAD_BALANCERS_LOCATION.value=${DEFAULT_LB_LOCATION}"
+ --set "env.HCLOUD_LOAD_BALANCERS_LOCATION.value=${DEFAULT_LB_LOCATION}" \
+ --set "robot.enabled=true"
 
 showProgress "Install Local Path Storage"
 
