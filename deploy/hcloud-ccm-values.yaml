@@ -16,3 +16,5 @@ networking:
   enabled: false
 metrics:
   enabled: true
+# robot:
+#   enabled: true

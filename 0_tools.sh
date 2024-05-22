@@ -5,6 +5,10 @@ SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source  "${SCRIPT_DIR}/lib.sh"
 showNotice "==== Executing $(basename "$0") ===="
 BUILD_ARCH=$( uname -m | sed 's/^x86_/amd/' )
+PKG_ARCH=$( uname -m | sed 's/^arm/aarch/' )
+TEMP_DIR="${HOME}/tmp"
+mkdir -p -m700 "${TEMP_DIR}"
+sudo mkdir -p -m755 /usr/local/bin
 
 if [ $( uname -s ) == "Darwin" ]; then
   if ! command -v brew > /dev/null; then
@@ -15,10 +19,10 @@ if [ $( uname -s ) == "Darwin" ]; then
   brew  install  packer  hcloud  jq  siderolabs/talos/talosctl  kubernetes-cli  helm
 
   showProgress "Install kubectl-mayastor from repo"
-  curl -L  "https://github.com/openebs/mayastor-control-plane/releases/latest/download/kubectl-mayastor-x86_64-apple-darwin.zip" \
-    --output /tmp/kubectl-mayastor.zip
-  unzip  -o  -d /tmp  /tmp/kubectl-mayastor.zip
-  sudo  install  -m 0755  /tmp/kubectl-mayastor  /usr/local/bin/kubectl-mayastor
+  curl -L  "https://github.com/openebs/mayastor-control-plane/releases/latest/download/kubectl-mayastor-${PKG_ARCH}-apple-darwin.tar.gz" \
+    --output "${TEMP_DIR}/kubectl-mayastor.tgz"
+  tar -xzf "${TEMP_DIR}/kubectl-mayastor.tgz" --directory="${TEMP_DIR}"
+  sudo  install  -m 0755  "${TEMP_DIR}/kubectl-mayastor"  "/usr/local/bin/kubectl-mayastor"
 elif [ $( uname -s ) == "Linux" ] && command -v apt-get > /dev/null; then
   showProgress "Install packages using APT"
   sudo  apt-get  update
@@ -26,31 +30,31 @@ elif [ $( uname -s ) == "Linux" ] && command -v apt-get > /dev/null; then
 
   showProgress "Install hcloud CLI from Github"
   DOWNLOAD_URL="$( curl -s https://api.github.com/repos/hetznercloud/cli/releases/latest | jq -r ".assets[] | select(.name==\"hcloud-linux-${BUILD_ARCH}.tar.gz\") | .browser_download_url" )"
-  curl -L "${DOWNLOAD_URL}" | tar -zx hcloud --directory=/tmp
-  sudo  install  -m 0755  /tmp/hcloud  /usr/local/bin
+  curl -L "${DOWNLOAD_URL}" | tar -zx hcloud --directory="${TEMP_DIR}"
+  sudo  install  -m 0755  ${TEMP_DIR}/hcloud  /usr/local/bin
 
   showProgress "Install talosctl from repo"
   curl -L "https://github.com/siderolabs/talos/releases/download/${TALOS_VERSION}/talosctl-linux-${BUILD_ARCH}" \
-    --output /tmp/talosctl
-  sudo  install  -m 0755  /tmp/talosctl  /usr/local/bin
+    --output ${TEMP_DIR}/talosctl
+  sudo  install  -m 0755  ${TEMP_DIR}/talosctl  /usr/local/bin
 
   showProgress "Install kubectl from repo"
   curl -L  "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/${BUILD_ARCH}/kubectl" \
-    --output /tmp/kubectl
-  sudo  install  -m 0755  /tmp/kubectl  /usr/local/bin
+    --output ${TEMP_DIR}/kubectl
+  sudo  install  -m 0755  ${TEMP_DIR}/kubectl  /usr/local/bin
 
   showProgress "Install Helm using get-helm-3 script"
   curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 \
-    --output /tmp/get-helm
-  chmod  +x  /tmp/get-helm
-  sudo  /tmp/get-helm
+    --output ${TEMP_DIR}/get-helm
+  chmod  +x  ${TEMP_DIR}/get-helm
+  sudo  ${TEMP_DIR}/get-helm
 
   # Build is not available for Linux on Arm
   showProgress "Install kubectl-mayastor from repo"
-  curl -L  "https://github.com/openebs/mayastor-control-plane/releases/latest/download/kubectl-mayastor-x86_64-linux-musl.zip" \
-    --output /tmp/kubectl-mayastor.zip
-  unzip  -o  -d /tmp  /tmp/kubectl-mayastor.zip
-  sudo  install  -m 0755  /tmp/kubectl-mayastor  /usr/local/bin/kubectl-mayastor
+  curl -L  "https://github.com/openebs/mayastor-control-plane/releases/latest/download/kubectl-mayastor-${PKG_ARCH}-linux-musl.zip" \
+    --output ${TEMP_DIR}/kubectl-mayastor.zip
+  unzip  -o  -d ${TEMP_DIR}  ${TEMP_DIR}/kubectl-mayastor.zip
+  sudo  install  -m 0755  ${TEMP_DIR}/kubectl-mayastor  /usr/local/bin/kubectl-mayastor
 
   if [ "${BUILD_ARCH}" != "amd64" ]; then
     sudo apt-get  install  --assume-yes  qemu-user

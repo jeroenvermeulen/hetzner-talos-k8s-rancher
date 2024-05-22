@@ -53,9 +53,13 @@ Make sure you update at least `RANCHER_HOSTNAME`
 ```bash
 ./2_cluster.sh
 ```
+#### Install Traefik ingress and Cert-Manager Letsencrypt
+```bash
+./3_services.sh
+```
 #### Install Rancher
 ```bash
-./3_rancher.sh
+./4_rancher.sh
 ```
 If everything works well the last script will display the Rancher URL.
 

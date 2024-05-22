@@ -150,7 +150,12 @@ for (( NR=0; NR<${#CONTROL_NAMES[@]}; NR++ )); do
                           \"op\": \"add\",
                           \"path\": \"/machine/nodeLabels/topology.kubernetes.io~1zone\",
                           \"value\": \"${CONTROL_LOCATION[${NR}]}\"
-                        }
+                        },
+                        {
+                          \"op\": \"add\",
+                          \"path\": \"/machine/nodeLabels/csi.hetzner.cloud~1location\",
+                          \"value\": \"${CONTROL_LOCATION[${NR}]}\"
+                        }                        
                       ]" \
       ${CONTROL_EXTRA_OPTS[@]} \
       --kubernetes-version="${KUBE_VERSION}" \
@@ -219,7 +224,12 @@ for (( NR=0; NR<${#INT_WORKER_NAMES[@]}; NR++ )); do
                           \"op\": \"add\",
                           \"path\": \"/machine/nodeLabels/topology.kubernetes.io~1zone\",
                           \"value\": \"${WORKER_LOCATION[${NR}]}\"
-                        }
+                        },
+                        {
+                          \"op\": \"add\",
+                          \"path\": \"/machine/nodeLabels/csi.hetzner.cloud~1location\",
+                          \"value\": \"${WORKER_LOCATION[${NR}]}\"
+                        }                        
                       ]" \
       ${WORKER_EXTRA_OPTS[@]} \
       --kubernetes-version="${KUBE_VERSION}" \
@@ -292,7 +302,11 @@ fi
 
 showProgress "KubeSpan Peers (from control1)"
 
-talosctl --nodes "${CONTROL_IPS[0]}" get kubespanpeerspecs
+for (( TRY=0; TRY<100; TRY++ )); do
+  if talosctl --nodes "${CONTROL_IPS[0]}" get kubespanpeerspecs; then
+    break
+  fi
+done
 talosctl --nodes "${CONTROL_IPS[0]}" get kubespanpeerstatuses
 
 showProgress "Update kubeconfig for kubectl"
@@ -365,8 +379,7 @@ helm  repo  update  hcloud
 helm  "${HELM_ACTION}"  hccm  hcloud/hcloud-cloud-controller-manager \
  --namespace "${NAMESPACE}" \
  --values "${SCRIPT_DIR}/deploy/hcloud-ccm-values.yaml" \
- --set "env.HCLOUD_LOAD_BALANCERS_LOCATION.value=${DEFAULT_LB_LOCATION}" \
- --set "robot.enabled=true"
+ --set "env.HCLOUD_LOAD_BALANCERS_LOCATION.value=${DEFAULT_LB_LOCATION}"
 
 showProgress "Install Local Path Storage"
 
@@ -384,6 +397,37 @@ fi
 helm  "${HELM_ACTION}"  hcloud-csi  hcloud/hcloud-csi  \
   --namespace "${NAMESPACE}" \
   --values "${DEPLOY_DIR}/hcloud-csi-values.yaml"
+
+showProgress "Patch CSI Nodes to add driver"
+
+for NODE_NAME in "${INT_NODE_NAMES[@]}"; do
+  NODE_ID="$( hcloud  server  describe  "${NODE_NAME}"  -o json  |  jq  -r  '.id' )"
+  LOCATION="$( hcloud  server  describe  "${NODE_NAME}"  -o json |  jq  -r .datacenter.location.name )"
+  # Somehow worker nodes loose the labels set in the Talos machine config.
+  kubectl  patch  node  "${NODE_NAME}"  --patch="{
+      \"metadata\": {
+        \"labels\": {
+          \"csi.hetzner.cloud/location\": \"${LOCATION}\"
+        }
+      }
+  }"
+  kubectl  patch  csinode  "${NODE_NAME}"  --patch="{
+      \"spec\": {
+        \"drivers\": [
+          {
+            \"allocatable\": {
+              \"count\": 16
+            },
+            \"name\": \"csi.hetzner.cloud\",
+            \"nodeID\": \"${NODE_ID}\",
+            \"topologyKeys\": [
+              \"csi.hetzner.cloud/location\"
+            ]
+          }
+        ]
+      }
+    }"
+done
 
 if [ "${WORKER_DATA_VOLUME}" -gt 0 ]; then
 
@@ -434,5 +478,7 @@ kubectl  get  nodes  -o wide
 set +o xtrace
 
 showWarning "Make sure the DNS of '${RANCHER_HOSTNAME}' resolves to the load balancer IP '${WORKER_LB_IPV4}' and IPv6 '${WORKER_LB_IPV6}'"
+
+showWarning "You can now use kubectl, to switch to this environment execute first:   source ./env.sh"
 
 showNotice "==== Finished $(basename "$0") ===="
