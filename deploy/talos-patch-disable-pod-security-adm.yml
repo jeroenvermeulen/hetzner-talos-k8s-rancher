@@ -1,0 +1,10 @@
+# Only needed on Control nodes
+---
+cluster:
+  apiServer:
+    admissionControl:
+      - name: PodSecurity
+        configuration:
+          defaults:
+            enforce: privileged
+            warn: privileged
