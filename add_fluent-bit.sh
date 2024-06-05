@@ -26,3 +26,5 @@ helm  "${HELM_ACTION}"  fluent-bit  fluent/fluent-bit \
     --timeout 20m \
     --debug
 kubectl -n "${NAMESPACE}" get pods
+
+showNotice "==== Finished $(basename "$0") ===="

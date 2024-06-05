@@ -19,4 +19,5 @@ showNotice "==== Executing $(basename "$0") ===="
   Press Ctrl-C to exit."
   kubectl --context "${KUBECTL_CONTEXT}" port-forward "${TRAEFIK_POD}" -n "${NAMESPACE}" 8443:8443 9000:9000 9100:9100
 )
+
 showNotice "==== Finished $(basename "$0") ===="

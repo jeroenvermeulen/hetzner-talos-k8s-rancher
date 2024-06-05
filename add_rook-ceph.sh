@@ -8,7 +8,7 @@ showNotice "==== Executing $(basename "$0") ===="
 set  -o xtrace
 setContext
 
-showProgress "Install Rook"
+showProgress "Install Rook Ceph Storage"
 
 helm  repo  add  rook-release  https://charts.rook.io/release
 helm  repo  update  rook-release
@@ -41,3 +41,5 @@ helm  "${HELM_ACTION}"  rook-ceph-cluster  rook-release/rook-ceph-cluster \
 kubectl -n "${NAMESPACE}" get pods
 
 kubectl  --namespace "${NAMESPACE}"  get  cephcluster  rook-ceph
+
+showNotice "==== Finished $(basename "$0") ===="
