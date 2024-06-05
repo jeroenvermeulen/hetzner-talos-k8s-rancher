@@ -1,0 +1,13 @@
+operatorNamespace: rook-ceph
+cephClusterSpec:
+  dataDirHostPath: /var/local/rook
+  placement:
+    all:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: role
+                  operator: In
+                  values:
+                    - storage-node

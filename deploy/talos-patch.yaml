@@ -3,10 +3,6 @@ machine:
   network:
     kubespan:
       enabled: true
-  features:
-    kubePrism:
-      enabled: true
-      port: 7445
   kubelet:
     registerWithFQDN: true
     extraArgs:

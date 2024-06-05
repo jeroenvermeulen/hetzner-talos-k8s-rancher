@@ -3,3 +3,4 @@ machine:
   nodeLabels:
     openebs.io/data-plane: true
     openebs.io/engine: mayastor
+    node-role.kubernetes.io/storage-node: "true"

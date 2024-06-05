@@ -130,6 +130,7 @@ for (( NR=0; NR<${#CONTROL_NAMES[@]}; NR++ )); do
   (
     umask 0077
     talosctl  gen  config  "${TALOS_CONTEXT}"  "https://${CONTROL_LB_IPV4}:6443" \
+      --talos-version="${TALOS_VERSION}" \
       --with-secrets="${TALOS_SECRETS}" \
       --with-docs=false \
       --with-examples=false \
@@ -204,6 +205,7 @@ for (( NR=0; NR<${#INT_WORKER_NAMES[@]}; NR++ )); do
   (
     umask 0077
     talosctl  gen  config  "${TALOS_CONTEXT}"  "https://${CONTROL_LB_IPV4}:6443" \
+      --talos-version="${TALOS_VERSION}" \
       --with-secrets "${TALOS_SECRETS}" \
       --with-docs=false \
       --with-examples=false \
