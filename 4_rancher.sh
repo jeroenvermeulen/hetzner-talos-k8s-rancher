@@ -9,17 +9,18 @@ showProgress "Install Rancher"
 
 helm  repo  add  rancher  "https://releases.rancher.com/server-charts/latest"
 helm  repo  update  rancher
+RELEASE_NAME="rancher"
 NAMESPACE="cattle-system"
 HELM_ACTION="install"
 VERSION=( '' )
 if [ "${RANCHER_VERSION}" != "latest" ]; then
   VERSION=( --version "${RANCHER_VERSION}" )
 fi
-if  helm  get  manifest  --namespace "${NAMESPACE}"  rancher  &>/dev/null; then
+if  helm  get  manifest  --namespace "${NAMESPACE}"  "${RELEASE_NAME}"  &>/dev/null; then
   HELM_ACTION="upgrade"
 fi
 # https://github.com/rancher/rancher/blob/release/v2.8/chart/values.yaml
-helm  "${HELM_ACTION}"  rancher  rancher/rancher \
+helm  "${HELM_ACTION}"  "${RELEASE_NAME}"  rancher/rancher \
     ${VERSION[@]} \
     --namespace "${NAMESPACE}" \
     --create-namespace \

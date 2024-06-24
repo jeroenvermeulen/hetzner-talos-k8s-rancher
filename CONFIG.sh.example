@@ -1,7 +1,7 @@
 #!/bin/bash
 CLUSTER_NAME="eu1"                              # Name for your cluster.
 RANCHER_HOSTNAME="rancher.eu1.yourdomain.com"   # You need to update this value
-TALOS_VERSION="v1.6.7"                          # https://github.com/siderolabs/talos/releases
+TALOS_VERSION="v1.7.5"                          # https://github.com/siderolabs/talos/releases
 KUBE_VERSION="v1.28.9"                          # https://kubernetes.io/releases/ - Rancher v2.8.4 must run on K8S <= v1.28.9
 RANCHER_VERSION="latest"                        # https://github.com/rancher/rancher/releases
 MAYASTOR_VERSION="latest"                       # https://github.com/openebs/mayastor-extensions/releases
@@ -14,7 +14,7 @@ CONTROL_LOCATION=(fsn1 hel1 nbg1 fsn1 hel1)     # Needs at least as many entries
 CONTROL_TYPE="CX22"                             # https://docs.hetzner.com/cloud/servers/overview/
 WORKER_LB_TYPE="LB11"                           # https://docs.hetzner.com/cloud/load-balancers/overview#pricing
 WORKER_LB_LOCATION="fsn1"                       # https://docs.hetzner.com/cloud/general/locations/
-WORKER_COUNT=2                                  # Number of worker nodes
+WORKER_COUNT=3                                  # Number of worker nodes
 WORKER_LOCATION=(fsn1 fsn1 fsn1 fsn1 fsn1 fsn1) # Needs at least as many entries as WORKER_COUNT
 WORKER_TYPE="CX32"                              # https://docs.hetzner.com/cloud/servers/overview/
 WORKER_DATA_VOLUME=0                            # GB, set to 0 to skip creating data volume for Mayastor,
