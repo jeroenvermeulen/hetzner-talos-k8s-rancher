@@ -200,7 +200,6 @@ for (( NR=0; NR<${#INT_WORKER_NAMES[@]}; NR++ )); do
         --format xfs
     fi
     VOLUME_MOUNT=( --automount  --volume "${VOLUME_NAME}" )
-    WORKER_EXTRA_OPTS=( --config-patch "@${SCRIPT_DIR}/deploy/talos-patch-data.yaml" )
   fi
   (
     umask 0077
@@ -357,11 +356,12 @@ for NODE_NAME in "${INT_NODE_NAMES[@]}"; do
   fi
 done
 
-showProgress "Patch Worker nodes with role"
+showProgress "Patch Worker nodes with roles"
 
 for NODE_NAME in "${WORKER_NAMES[@]}"; do
-  # This label is restricted during creation of the node
+  # Adding these labels to the Talos machine config is restricted because of security reasons.
   kubectl label node "${NODE_NAME}" node-role.kubernetes.io/worker=true
+  kubectl label node "${NODE_NAME}" node-role.kubernetes.io/storage-node=true
 done
 
 showProgress "Create Hetzner Cloud secret"

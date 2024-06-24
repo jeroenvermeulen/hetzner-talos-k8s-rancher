@@ -50,7 +50,7 @@ showProgress "Install Jetstack Cert-Manager for Let's Encrypt"
 
 helm  repo  add  jetstack  "https://charts.jetstack.io"
 helm  repo  update  jetstack
-RELEASE_NAME="cert-manager "
+RELEASE_NAME="cert-manager"
 NAMESPACE="cert-manager"
 HELM_ACTION="install"
 if  helm  get  manifest  --namespace "${NAMESPACE}"  "${RELEASE_NAME}"  &>/dev/null; then
