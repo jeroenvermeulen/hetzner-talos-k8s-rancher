@@ -1,5 +1,7 @@
 ---
 machine:
+  nodeLabels:
+    kubernetes.io/os: linux # Just a label, so we can add more using JSON patch
   network:
     kubespan:
       enabled: true

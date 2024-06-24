@@ -156,7 +156,7 @@ for (( NR=0; NR<${#CONTROL_NAMES[@]}; NR++ )); do
                           \"op\": \"add\",
                           \"path\": \"/machine/nodeLabels/csi.hetzner.cloud~1location\",
                           \"value\": \"${CONTROL_LOCATION[${NR}]}\"
-                        }                        
+                        }
                       ]" \
       ${CONTROL_EXTRA_OPTS[@]} \
       --kubernetes-version="${KUBE_VERSION}" \
@@ -210,7 +210,6 @@ for (( NR=0; NR<${#INT_WORKER_NAMES[@]}; NR++ )); do
       --with-docs=false \
       --with-examples=false \
       --config-patch "@${SCRIPT_DIR}/deploy/talos-patch.yaml" \
-      --config-patch "@${SCRIPT_DIR}/deploy/talos-patch-worker.yaml" \
       --config-patch "[
                         {
                           \"op\": \"replace\",
@@ -231,7 +230,7 @@ for (( NR=0; NR<${#INT_WORKER_NAMES[@]}; NR++ )); do
                           \"op\": \"add\",
                           \"path\": \"/machine/nodeLabels/csi.hetzner.cloud~1location\",
                           \"value\": \"${WORKER_LOCATION[${NR}]}\"
-                        }                        
+                        }
                       ]" \
       ${WORKER_EXTRA_OPTS[@]} \
       --kubernetes-version="${KUBE_VERSION}" \
@@ -358,13 +357,18 @@ for NODE_NAME in "${INT_NODE_NAMES[@]}"; do
   fi
 done
 
+showProgress "Patch Worker nodes with role"
+
+for NODE_NAME in "${WORKER_NAMES[@]}"; do
+  # This label is restricted during creation of the node
+  kubectl label node "${NODE_NAME}" node-role.kubernetes.io/worker=true
+done
+
 showProgress "Create Hetzner Cloud secret"
 
 NAMESPACE="kube-system"
 if  ! kubectl get -n "${NAMESPACE}" secret --no-headers -o name | grep -x "secret/hcloud"; then
-  HCLOUD_TOKEN="$( grep -A1 "name = '${HCLOUD_CONTEXT}'" ~/.config/hcloud/cli.toml | tail -n1 | cut -d\' -f2 )"
-  kubectl  -n kube-system  create  secret  generic  hcloud \
-   --from-literal="token=${HCLOUD_TOKEN}"
+  kubectl  -n kube-system  create  secret  generic  hcloud  --from-literal="token=$( getHcloudToken )"
 fi
 
 showProgress "Install Hetzner Cloud Controller Manager using Helm"
@@ -405,7 +409,6 @@ showProgress "Patch CSI Nodes to add driver"
 for NODE_NAME in "${INT_NODE_NAMES[@]}"; do
   NODE_ID="$( hcloud  server  describe  "${NODE_NAME}"  -o json  |  jq  -r  '.id' )"
   LOCATION="$( hcloud  server  describe  "${NODE_NAME}"  -o json |  jq  -r .datacenter.location.name )"
-  # Somehow worker nodes loose the labels set in the Talos machine config.
   kubectl  patch  node  "${NODE_NAME}"  --patch="{
       \"metadata\": {
         \"labels\": {
@@ -435,8 +438,6 @@ showProgress "Show nodes"
 
 kubectl  get  nodes  -o wide
 set +o xtrace
-
-showWarning "Make sure the DNS of '${RANCHER_HOSTNAME}' resolves to the load balancer IP '${WORKER_LB_IPV4}' and IPv6 '${WORKER_LB_IPV6}'"
 
 showWarning "You can now use kubectl, to switch to this environment execute first:   source ./env.sh"
 

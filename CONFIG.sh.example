@@ -11,12 +11,12 @@ CONTROL_LB_TYPE="LB11"                          # https://docs.hetzner.com/cloud
 CONTROL_LB_LOCATION="fsn1"                      # https://docs.hetzner.com/cloud/general/locations/
 CONTROL_COUNT=3                                 # Number of control nodes
 CONTROL_LOCATION=(fsn1 hel1 nbg1 fsn1 hel1)     # Needs at least as many entries as CONTROL_COUNT
-CONTROL_TYPE="CX31"                             # https://docs.hetzner.com/cloud/servers/overview/
+CONTROL_TYPE="CX22"                             # https://docs.hetzner.com/cloud/servers/overview/
 WORKER_LB_TYPE="LB11"                           # https://docs.hetzner.com/cloud/load-balancers/overview#pricing
 WORKER_LB_LOCATION="fsn1"                       # https://docs.hetzner.com/cloud/general/locations/
 WORKER_COUNT=2                                  # Number of worker nodes
 WORKER_LOCATION=(fsn1 fsn1 fsn1 fsn1 fsn1 fsn1) # Needs at least as many entries as WORKER_COUNT
-WORKER_TYPE="CX31"                              # https://docs.hetzner.com/cloud/servers/overview/
+WORKER_TYPE="CX32"                              # https://docs.hetzner.com/cloud/servers/overview/
 WORKER_DATA_VOLUME=0                            # GB, set to 0 to skip creating data volume for Mayastor,
                                                 # Worker nodes need to have 3 or more CPU cores to use this.
 LETSENCRYPT_EMAIL="ssl@yourdomain.com"          # Receives expiry notifications etc.

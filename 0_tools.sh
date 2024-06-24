@@ -8,6 +8,7 @@ BUILD_ARCH=$( uname -m | sed 's/^x86_/amd/' )
 PKG_ARCH=$( uname -m | sed 's/^arm/aarch/' )
 TEMP_DIR="${HOME}/tmp"
 mkdir -p -m700 "${TEMP_DIR}"
+showNotice "Will now use 'sudo', this may ask for your OS user password."
 sudo mkdir -p -m755 /usr/local/bin
 
 if [ $( uname -s ) == "Darwin" ]; then

@@ -1,9 +1,12 @@
 .idea
 *~
 *.tmp
+*.old
 *.snapshot.*
 /secrets.*.yaml
 /talosconfig.*.yaml
 /kubeconfig.*.yaml
 /CONFIG.sh
+/CONFIG.*.sh
 /node_*.yaml
+/test

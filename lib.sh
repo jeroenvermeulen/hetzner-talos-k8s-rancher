@@ -146,6 +146,12 @@ function openFirewallPorts() {
   esac
 }
 
+function getHcloudToken()
+{
+  grep --extended-regexp --after-context=1 "name = ('|\")${HCLOUD_CONTEXT}('|\")" ~/.config/hcloud/cli.toml \
+    | grep --extended-regexp --only-matching '\w{64}'
+}
+
 trap '{ set +o xtrace; } 2>/dev/null; onError' ERR SIGINT SIGTERM
 
 if [ -z "${SCRIPT_DIR+x}" ] || [ -z "${SCRIPT_DIR}" ]; then

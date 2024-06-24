@@ -15,9 +15,10 @@ getLoadBalancerIps
 
 helm  repo  add  traefik  "https://traefik.github.io/charts"
 helm  repo  update  traefik
+RELEASE_NAME="traefik"
 NAMESPACE="traefik"
 HELM_ACTION="install"
-if  helm  get  manifest  --namespace "${NAMESPACE}"  traefik  &>/dev/null; then
+if  helm  get  manifest  --namespace "${NAMESPACE}"  "${RELEASE_NAME}"  &>/dev/null; then
   HELM_ACTION="upgrade"
 fi
 EXTRA_OPTS=( '' )
@@ -26,7 +27,7 @@ if [ 0 -eq "${WORKER_COUNT}" ]; then
 fi
 # https://github.com/traefik/traefik-helm-chart/blob/master/traefik/values.yaml
 # https://pkg.go.dev/github.com/hetznercloud/hcloud-cloud-controller-manager/internal/annotation#Name
-helm  "${HELM_ACTION}"  traefik  traefik/traefik \
+helm  "${HELM_ACTION}"  "${RELEASE_NAME}"  traefik/traefik \
     --namespace  "${NAMESPACE}" \
     --create-namespace \
     --values "${DEPLOY_DIR}/traefik-values.yaml" \
@@ -49,13 +50,14 @@ showProgress "Install Jetstack Cert-Manager for Let's Encrypt"
 
 helm  repo  add  jetstack  "https://charts.jetstack.io"
 helm  repo  update  jetstack
+RELEASE_NAME="cert-manager "
 NAMESPACE="cert-manager"
 HELM_ACTION="install"
-if  helm  get  manifest  --namespace "${NAMESPACE}"  cert-manager  &>/dev/null; then
+if  helm  get  manifest  --namespace "${NAMESPACE}"  "${RELEASE_NAME}"  &>/dev/null; then
   HELM_ACTION="upgrade"
 fi
 # https://github.com/cert-manager/cert-manager/blob/master/deploy/charts/cert-manager/values.yaml
-helm  "${HELM_ACTION}"  cert-manager  jetstack/cert-manager \
+helm  "${HELM_ACTION}"  "${RELEASE_NAME}"  jetstack/cert-manager \
     --namespace  "${NAMESPACE}" \
     --create-namespace \
     --set  installCRDs=true \
@@ -66,5 +68,7 @@ helm  "${HELM_ACTION}"  cert-manager  jetstack/cert-manager \
 kubectl -n "${NAMESPACE}" get pods
 
 showNotice "Traefik Ingress and Cert-Manager Letsencrypt are now installed."
+
+showWarning "Make sure the DNS of '${RANCHER_HOSTNAME}' resolves to the load balancer IP '${WORKER_LB_IPV4}' and IPv6 '${WORKER_LB_IPV6}'"
 
 showNotice "==== Finished $(basename "$0") ===="
