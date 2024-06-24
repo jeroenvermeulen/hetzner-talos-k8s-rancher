@@ -3,6 +3,7 @@
 *.tmp
 *.old
 *.snapshot.*
+.DS_Store
 /secrets.*.yaml
 /talosconfig.*.yaml
 /kubeconfig.*.yaml

@@ -26,7 +26,7 @@ machine:
     vm.swappiness: "1"
   install:
     extensions:
-      - image: ghcr.io/siderolabs/iscsi-tools:v0.1.1  # newer versions keep crashing on dedicated servers, tested till v0.1.4
+      - image: ghcr.io/siderolabs/iscsi-tools:v0.1.4  # newer versions keep crashing on dedicated servers, tested till v0.1.4
 cluster:
   discovery:
     enabled: true
